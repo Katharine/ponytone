@@ -1,0 +1,24 @@
+{
+  "name": "mlkonline",
+  "version": "0.0.1",
+  "description": "Online Pony Karaoke",
+  "main": "src/js/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch": "webpack-dev-server --content-base build/",
+    "build": "webpack -p"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "babel-core": "^6.26.0",
+    "babel-loader": "^7.1.1",
+    "babel-preset-env": "^1.6.0",
+    "babel-preset-stage-3": "^6.24.1",
+    "file-loader": "^0.11.2",
+    "raw-loader": "^0.5.1",
+    "webpack": "^3.5.5",
+    "webpack-dev-server": "^2.7.1"
+  }
+}
