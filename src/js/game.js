@@ -36,9 +36,9 @@ export class GameSession extends EventEmitter {
     }
 
     _prepare(songText) {
-        this.song = new Song(songText);
+        this.song = new Song(this._baseURL, songText);
 
-        this.audio = new Audio(this._baseURL + '/' + this.song.mp3);
+        this.audio = new Audio(this.song.mp3);
         this.audio.preload = 'auto';
         this.audio.addEventListener('canplaythrough', () => this._maybeReady());
         this.audio.addEventListener('playing', () => this._startedPlaying());

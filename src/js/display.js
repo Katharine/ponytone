@@ -35,7 +35,7 @@ export class GameDisplay extends EventEmitter {
         this.videoElement = document.createElement('video');
         this.videoElement.height = this.height;
         this.videoElement.width = this.width;
-        this.videoElement.src = require('../media/video.mp4'); // TODO: fix this.
+        this.videoElement.src = this.song.video;
         this.videoElement.preload = "auto";
         this.videoElement.addEventListener("canplaythrough", () => {
             this._ready = true;

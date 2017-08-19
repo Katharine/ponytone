@@ -1,13 +1,15 @@
 "use strict";
 
 export class Song {
-    constructor(text) {
+    constructor(baseURL, text) {
+        this.baseURL = baseURL;
         this.metadata = {};
         this.parts = [];
         this.bpm = null;
         this.gap = null;
-        this.mp3 = null;
-        this.background = null;
+        this._mp3 = null;
+        this._background = null;
+        this._video = null;
         this.parse(text);
     }
 
@@ -125,13 +127,13 @@ export class Song {
                 this.metadata.comment = value;
                 break;
             case "MP3":
-                this.mp3 = value;
+                this._mp3 = value;
                 break;
             case "COVER":
                 this.metadata.cover = value;
                 break;
             case "BACKGROUND":
-                this.background = value;
+                this._background = value;
                 break;
             case "BPM":
                 this.bpm = parseFloat(value, 10);
@@ -140,11 +142,23 @@ export class Song {
                 this.gap = parseInt(value, 10);
                 break;
             case "VIDEO":
-                this.video = value;
+                this._video = value;
                 break;
             default:
                 console.warn(`Got unknown command ${command}; ignoring.`)
         }
+    }
+
+    get mp3() {
+        return this.baseURL + '/' + this._mp3;
+    }
+
+    get background() {
+        return this.baseURL + '/' + this._background;
+    }
+
+    get video() {
+        return this.baseURL + '/' + this._video;
     }
 }
 
