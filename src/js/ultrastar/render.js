@@ -21,12 +21,14 @@ export class LyricRenderer {
         let beat = this.song.msToBeats(time);
         let ctx = this.context;
         ctx.save();
+        ctx.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
+        ctx.fillStyle = 'rgba(50, 50, 50, 0.4)';
+        ctx.fillRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
         ctx.font = '48px sans-serif';
         ctx.strokeStyle = 'black';
         ctx.fillStyle = 'white';
         ctx.textBaseline = 'middle';
         ctx.lineWidth = 1.5;
-        ctx.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
         let line = this.song.getLine(time, this.part);
         if (!line) {
             return;
@@ -68,11 +70,7 @@ export class NoteRenderer {
         this.song = null;
         this.part = 0;
         this.colour = '#4287f4';
-        this.singer = null;
-    }
-
-    setSinger(singer) {
-        this.singer = singer;
+        this.player = null;
     }
 
     setSong(song, part) {
@@ -84,8 +82,8 @@ export class NoteRenderer {
         this.colour = colour;
     }
 
-    addSungNote(time, pitch) {
-        this.sung.push({time, pitch});
+    setPlayer(player) {
+        this.player = player;
     }
 
     render(time) {
@@ -134,12 +132,12 @@ export class NoteRenderer {
         }
         this.context.restore();
 
-        if (this.singer) {
+        if (this.player) {
             ctx.save();
             ctx.lineWidth = 10;
             ctx.lineCap = 'butt';
             ctx.strokeStyle = 'black';
-            for (let note of this.singer.notesInRange(startBeat, endBeat)) {
+            for (let note of this.player.singing.notesInRange(startBeat, endBeat)) {
                 let beat = note.time;
                 let actual = line.getNoteNearBeat(beat);
                 let renderLine = (note.note - lowest + 4) % 20;
@@ -159,5 +157,37 @@ export class NoteRenderer {
             }
             ctx.restore();
         }
+    }
+}
+
+export class ScoreRenderer {
+    constructor(canvas, x, y, w, h) {
+        this.canvas = canvas;
+        this.context = this.canvas.getContext('2d');
+        this.rect = {x, y, w, h};
+        this.colour = '#4287f4';
+        this.player = null;
+    }
+
+    setColour(colour) {
+        this.colour = colour;
+    }
+
+    setPlayer(player) {
+        this.player = player;
+    }
+
+    render() {
+        let ctx = this.canvas.getContext('2d');
+        ctx.save();
+        ctx.font = '48px sans-serif';
+        ctx.strokeStyle = 'white';
+        ctx.fillStyle = this.colour;
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        ctx.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
+        ctx.fillText(this.player.score, this.rect.x, this.rect.y);
+        ctx.strokeText(this.player.score, this.rect.x, this.rect.y);
+        ctx.restore();
     }
 }

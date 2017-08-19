@@ -35,7 +35,6 @@ export class Song {
     }
 
     msToBeats(time) {
-        // return ((time - this.gap) / 1000) * 30;
         return Math.floor((((time - this.gap) / 60000) * this.bpm) * 4);
     }
 

@@ -2,30 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>Karaoke!</title>
 </head>
 <body>
-<div id="time"></div>
-<table border="1" cellpadding="3">
-    <tr>
-        <td>
-            <div id="word0"></div>
-            <span id="note-name0"></span>
-        </td>
-        <td>
-            <div id="word1"></div>
-            <span id="note-name1"></span>
-        </td>
-    </tr>
-</table>
-
-<div style="position: relative;">
-    <video id="video" preload></video>
-    <canvas id="canvas" width="1280" height="720" style="position: absolute; top: 0; left: 0;"></canvas>
+<div id="game-container">
 </div>
 <div><audio id="audio" preload></audio></div>
-<button disabled id="start">Play</button>
-<span id="score">0</span>
+<button id="start" disabled>Play</button>
 <script src="bundle.js" type="text/javascript"></script>
 </body>
 </html>
