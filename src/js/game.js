@@ -40,7 +40,7 @@ export class GameSession extends EventEmitter {
 
         this.audio = new Audio(this.song.mp3);
         this.audio.preload = 'auto';
-        this.audio.addEventListener('canplaythrough', () => this._maybeReady());
+        this.audio.addEventListener('load', () => this._maybeReady());
         this.audio.addEventListener('playing', () => this._startedPlaying());
         this.audio.addEventListener('stopped', () => this._stoppedPlaying());
         this.players = [new LocalPlayer(this.song, 0, this.audio)];
@@ -54,7 +54,9 @@ export class GameSession extends EventEmitter {
 
     _maybeReady() {
         console.log('maybeReady', this.audio.readyState, this.display.ready);
-        if (this.audio.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) {
+        console.log(this.audio.buffered.length ? this.audio.buffered.end(0) : 0);
+        if (this.audio.buffered.length > 0 && this.audio.buffered.end(0) >= this.audio.duration - 1) {
+            console.log(`Audio ready: ${this.audio.buffered.end(0)} / ${this.audio.duration}.`);
             if (this.display.ready) {
                 this._definitelyReady();
             }

@@ -37,6 +37,7 @@ export class GameDisplay extends EventEmitter {
         this.videoElement.width = this.width;
         this.videoElement.src = this.song.video;
         this.videoElement.preload = "auto";
+        this.videoElement.poster = this.song.background;
         this.videoElement.addEventListener("canplaythrough", () => {
             this._ready = true;
             this.emit("ready");
@@ -69,7 +70,9 @@ export class GameDisplay extends EventEmitter {
     start() {
         this.running = true;
         this.videoElement.currentTime = 0;
-        this.videoElement.play();
+        if (this.videoElement.src) {
+            this.videoElement.play();
+        }
         this._scaleInterval = setInterval(() => this._scaleCanvas(), 1000);
         requestAnimationFrame(() => this._renderFrame());
     }
@@ -83,6 +86,11 @@ export class GameDisplay extends EventEmitter {
     _renderFrame() {
         if (!this.running) {
             return;
+        }
+        if (this.videoElement.src && Math.abs(this.videoElement.currentTime - this.audio.currentTime) > 0.2) {
+            console.log('A/V desync; disabling.');
+            this.videoElement.removeAttribute('src');
+            this.videoElement.load();
         }
 
         let time = (this.audio.currentTime * 1000) | 0;
