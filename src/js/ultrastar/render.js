@@ -36,7 +36,7 @@ export class LyricRenderer {
         let x = this.rect.x + (this.rect.w/2 - totalWidth/2);
         let y = this.rect.y + this.rect.h/2;
         for (let note of line.notes) {
-            let active = (beat >= note.beat && beat <= note.beat + note.length);
+            let active = (beat >= note.beat && beat < note.beat + note.length);
             if (active) {
                 ctx.save();
                 ctx.fillStyle = this.activeColour;
@@ -68,7 +68,11 @@ export class NoteRenderer {
         this.song = null;
         this.part = 0;
         this.colour = '#4287f4';
-        this.sung = [];
+        this.singer = null;
+    }
+
+    setSinger(singer) {
+        this.singer = singer;
     }
 
     setSong(song, part) {
@@ -130,21 +134,30 @@ export class NoteRenderer {
         }
         this.context.restore();
 
-        ctx.save();
-        ctx.lineWidth = 10;
-        ctx.lineCap = 'butt';
-        ctx.strokeStyle = 'black';
-        for (let note of this.sung) {
-            let beat = this.song.msToBeats(note.time);
-            let line = (note.pitch - lowest + 4) % 20;
-            while (line < 0) line += 19;
-            let y = this.rect.y + (this.rect.h - (line * (this.rect.h / 20))) - this.rect.h / 20;
+        if (this.singer) {
+            ctx.save();
+            ctx.lineWidth = 10;
+            ctx.lineCap = 'butt';
+            ctx.strokeStyle = 'black';
+            for (let note of this.singer.notesInRange(startBeat, endBeat)) {
+                let beat = note.time;
+                let actual = line.getNoteNearBeat(beat);
+                let renderLine = (note.note - lowest + 4) % 20;
+                let altLine = (note.note - lowest + 4 + 12) % 20;
+                let actualLine = (actual.pitch - lowest + 4) % 20;
+                while (renderLine < 0) renderLine += 19;
+                while (altLine < 0) altLine += 19;
+                if (Math.abs(altLine - actualLine) < Math.abs(renderLine - actualLine)) {
+                    renderLine = altLine;
+                }
+                let y = this.rect.y + (this.rect.h - (renderLine * (this.rect.h / 20))) - this.rect.h / 20;
 
-            ctx.beginPath();
-            ctx.moveTo(this.rect.x + beatWidth * (beat - startBeat), y);
-            ctx.lineTo(this.rect.x + beatWidth * (beat - startBeat + 1), y);
-            ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(this.rect.x + beatWidth * (beat - startBeat), y);
+                ctx.lineTo(this.rect.x + beatWidth * (beat - startBeat + 1), y);
+                ctx.stroke();
+            }
+            ctx.restore();
         }
-        ctx.restore();
     }
 }

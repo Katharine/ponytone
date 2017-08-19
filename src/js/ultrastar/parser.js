@@ -15,7 +15,7 @@ export class Song {
         part = part || 0;
         let beat = this.msToBeats(time);
         if (beat < 0) {
-            return null;
+            beat = 0;
         }
         for (let i = 0; i < this.parts[part].length - 1; ++i) {
             if(beat >= this.parts[part][i].start && this.parts[part][i+1].start > beat) {
@@ -60,7 +60,7 @@ export class Song {
                         if (part.length > 0) {
                             this.parts.push(part);
                         }
-                        noteLine = {notes: []};
+                        noteLine = {notes: [], start: 0};
                         part = [];
                     }
                     break;
@@ -135,7 +135,7 @@ export class Song {
                 this.background = value;
                 break;
             case "BPM":
-                this.bpm = parseInt(value, 10);
+                this.bpm = parseFloat(value, 10);
                 break;
             case "GAP":
                 this.gap = parseInt(value, 10);
@@ -159,7 +159,17 @@ export class SongLine {
         let beats = this.song.msToBeats(time);
 
         for (let note of this.line.notes) {
-            if (beats >= note.beat && beats <= note.beat + note.length) {
+            if (beats >= note.beat && beats < note.beat + note.length) {
+                return note;
+            }
+        }
+        return null;
+    }
+
+    getNoteNearBeat(beat) {
+        for (let i = this.line.notes.length - 1; i >= 0; --i) {
+            let note = this.line.notes[i];
+            if (beat >= note.beat) {
                 return note;
             }
         }

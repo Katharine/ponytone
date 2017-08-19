@@ -1,4 +1,4 @@
-// import {LiveAudio} from "./audio/live";
+import {Singing} from "./audio/live";
 import {LyricRenderer, NoteRenderer} from "./ultrastar/render";
 import {Song} from "./ultrastar/parser";
 
@@ -10,37 +10,14 @@ let song = new Song(txt.replace(/\r/g, ""));
 
 window.something = song;
 
-// let foo = new LiveAudio();
-// window.foo = foo;
-
-function thing(time, part) {
-    let line = song.getLine(time, part);
-    let text = '';
-    let noteName = '';
-    if (!line) {
-        text = "";
-    } else {
-        let note = line.getNote(time);
-        if (!note) {
-            return;
-        } else {
-            let noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-            let pitch = note.pitch;
-            while (pitch < 0) pitch += 12;
-            noteName = noteStrings[pitch % 12];
-            if (note.type === "F") {
-                noteName = "[spoken]";
-            }
-            text = note.text;
-        }
-    }
-    document.getElementById(`note-name${part}`).innerHTML = `Note: ${noteName}`;
-    document.getElementById(`word${part}`).innerHTML = `Syllable: ${text}`;
-}
-
+let oldScale = 1;
 function scaleCanvas(canvas, context, width, height) {
     // assume the device pixel ratio is 1 if the browser doesn't specify it
     const devicePixelRatio = window.devicePixelRatio || 1;
+    if (devicePixelRatio === oldScale) {
+        return;
+    }
+    oldScale = devicePixelRatio;
 
     // determine the 'backing store ratio' of the canvas context
     const backingStoreRatio = (
@@ -76,7 +53,7 @@ function scaleCanvas(canvas, context, width, height) {
 }
 
 let canvas = document.getElementById('canvas');
-scaleCanvas(canvas, canvas.getContext('2d'), 1280, 720);
+setInterval(() => scaleCanvas(canvas, canvas.getContext('2d'), 1280, 720), 1000);
 let renderer = new LyricRenderer(canvas, 0, 660, 1280, 60);
 let renderer2 = new LyricRenderer(canvas, 0, 0, 1280, 60);
 renderer.setSong(song, 0);
@@ -90,7 +67,10 @@ noteRenderer2.setSong(song, 1);
 noteRenderer.setColour('#4287f4');
 noteRenderer2.setColour('#f44242');
 
-// let live = new LiveAudio();
+window.noteRenderer = noteRenderer;
+
+let singing = new Singing(song, document.getElementById('audio'));
+noteRenderer.setSinger(singing);
 
 document.getElementById('audio').src = require('../media/song.mp3');
 document.getElementById('video').src = require('../media/video.mp4');
@@ -108,35 +88,19 @@ document.getElementById('start').addEventListener('click', function() {
 document.getElementById('audio').addEventListener('playing', function() {
     // let start = Date.now();
     document.getElementById('video').play();
-    let foo =(() => {
-        // let now = Date.now();
+    singing.start();
+    let foo = () => {
         let time = document.getElementById('audio').currentTime * 1000 | 0;
-        // document.getElementById('time').innerHTML = `${time}ms / ${song.msToBeats(time)} beats`;
-        // thing(time, 0);
-        // thing(time, 1);
         renderer.render(time);
         if (song.parts.length > 1) {
             renderer2.render(time);
         }
-        // let sungNote = live.getNoteFromMic().number;
-        // noteRenderer.addSungNote(time, sungNote);
-        // noteRenderer2.addSungNote(time, sungNote);
         noteRenderer.render(time);
         if (song.parts.length > 1) {
             noteRenderer2.render(time);
         }
-        // sungNote = sungNote % 12;
-        // let line = song.getLine(time, 0);
-        // if (line) {
-        //     let note = line.getNote(time);
-        //     if (note) {
-        //         let expectedNote = note.pitch % 12;
-        //         while (expectedNote < 0) expectedNote += 12;
-        //         let error = Math.min(Math.abs(sungNote - expectedNote), Math.abs(sungNote + 12 - expectedNote));
-        //         console.log(`Error: ${error} notes (${sungNote} vs ${expectedNote}`);
-        //     }
-        // }
+        document.getElementById('score').innerHTML = singing.score;
         window.requestAnimationFrame(foo);
-    });
+    };
     window.requestAnimationFrame(foo);
 });
