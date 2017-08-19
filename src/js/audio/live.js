@@ -12,7 +12,7 @@ export class LiveAudio extends EventEmitter {
         this.analyser.fftSize = 2048;
         this.fft = new Float32Array(this.analyser.frequencyBinCount);
         this.source = null;
-        navigator.mediaDevices.getUserMedia({audio: true, echoCancellation: true})
+        navigator.mediaDevices.getUserMedia({audio: true, echoCancellation: false})
             .then((stream) => this._handleMedia(stream))
             .catch((err) => this._mediaFailed(err));
     }
@@ -44,6 +44,10 @@ export class LiveAudio extends EventEmitter {
             return false;
         }
         return true;
+    }
+
+    static requestPermissions() {
+        navigator.mediaDevices.getUserMedia({audio: true});
     }
 }
 

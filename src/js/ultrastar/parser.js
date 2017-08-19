@@ -39,7 +39,7 @@ export class Song {
     }
 
     parse(text) {
-        let lines = text.split("\n");
+        let lines = text.replace(/\r/g, "").split("\n");
         let part = [];
         let noteLine = {notes: [], start: 0};
         for (let line of lines) {

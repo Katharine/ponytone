@@ -21,6 +21,10 @@ export class LocalPlayer {
         this.singing.start();
     }
 
+    stop() {
+        this.singing.stop();
+    }
+
     get score() {
         let part = this.song.parts[this.part];
         let expected = part.map((x) => x.notes).reduce((a, c) => a.concat(c), []);
@@ -36,7 +40,8 @@ export class LocalPlayer {
                 if (!actual[i]) {
                     break;
                 }
-                if (actual[i].note % 12 === note.pitch % 12) {
+                let diff = Math.abs((actual[i].note % 12) - (note.pitch % 12));
+                if (diff <= 1 || diff >= 11) {
                     score += scorePerBeat;
                 }
                 ++i;

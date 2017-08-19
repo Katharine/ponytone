@@ -68,6 +68,7 @@ export class GameDisplay extends EventEmitter {
 
     start() {
         this.running = true;
+        this.videoElement.currentTime = 0;
         this.videoElement.play();
         this._scaleInterval = setInterval(() => this._scaleCanvas(), 1000);
         requestAnimationFrame(() => this._renderFrame());
@@ -75,8 +76,7 @@ export class GameDisplay extends EventEmitter {
 
     stop() {
         clearInterval(this._scaleInterval);
-        this.videoElement.stop();
-        this.videoElement.currentTime = 0;
+        this.videoElement.pause();
         this.running = false;
     }
 

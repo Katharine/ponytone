@@ -1,29 +1,21 @@
-import {Song} from "./ultrastar/parser";
-import {GameDisplay} from "./display";
-import {LocalPlayer} from "./player";
+import {GameSession} from "./game";
+import {LiveAudio} from "./audio/live";
 
-import txt from "../media/notes.txt";
+LiveAudio.requestPermissions();
 
-let song = new Song(txt.replace(/\r/g, ""));
-let audio = document.getElementById('audio');
-let player = new LocalPlayer(song, 0, audio);
-player.prepare();
-let display = new GameDisplay(document.getElementById('game-container'), 1280, 720, song, [player], audio);
-display.createGameLayout();
-display.on('ready', () => document.getElementById('start').removeAttribute('disabled'));
+let session = new GameSession(document.getElementById('game-container'), 1280, 720, "https://s3-us-west-2.amazonaws.com/mlkonline/cupcakes/notes.txt");
 
-audio.src = require('../media/song.mp3');
+document.getElementById('loading-image').src = require('../img/loading.png');
 
 document.getElementById('start').addEventListener('click', function() {
     this.setAttribute('disabled', 'disabled');
-    document.getElementById('audio').play();
+    document.getElementById('loading').style.display = 'table';
+    session.prepare();
 });
 
-audio.addEventListener('playing', function() {
-    player.start();
-    display.start();
-});
 
-audio.addEventListener('ended', function() {
-    display.stop();
+
+session.on('ready', () => {
+    document.getElementById('loading').style.display = 'none';
+    session.start()
 });
