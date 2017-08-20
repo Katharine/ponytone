@@ -1,0 +1,7 @@
+{
+  "scripts": {
+    "dokku": {
+      "postdeploy": "./node_modules/.bin/webpack -p"
+    }
+  }
+}

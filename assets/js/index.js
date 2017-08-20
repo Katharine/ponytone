@@ -3,7 +3,7 @@ import {LiveAudio} from "./audio/live";
 
 LiveAudio.requestPermissions();
 
-let song = location.search.substr(1) || 'cupcakes';
+let song = SONG_ID;
 
 let session = new GameSession(document.getElementById('game-container'), 1280, 720, `https://s3-us-west-2.amazonaws.com/mlkonline/${song}/notes.txt`);
 

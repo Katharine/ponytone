@@ -1,3 +1,7 @@
-build/
+assets/bundles/
 node_modules/
-media/
+db.sqlite3
+webpack-stats.json
+__pycache__
+.idea/
+.pyenv/
