@@ -5,7 +5,7 @@ LiveAudio.requestPermissions();
 
 let song = SONG_ID;
 
-let session = new GameSession(document.getElementById('game-container'), 1280, 720, `https://s3-us-west-2.amazonaws.com/mlkonline/${song}/notes.txt`);
+let session = new GameSession(document.getElementById('game-container'), 1280, 720, `https://music.ponytone.online/${song}/notes.txt`);
 
 document.getElementById('loading-image').src = require('../img/loading.png');
 
