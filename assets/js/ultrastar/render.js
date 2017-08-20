@@ -143,8 +143,8 @@ export class NoteRenderer {
                 let renderLine = (note.note - lowest + 4) % 20;
                 let altLine = (note.note - lowest + 4 + 12) % 20;
                 let actualLine = (actual.pitch - lowest + 4) % 20;
-                while (renderLine < 0) renderLine += 19;
-                while (altLine < 0) altLine += 19;
+                while (renderLine < 0) renderLine += 20;
+                while (altLine < 0) altLine += 20;
                 if (Math.abs(altLine - actualLine) < Math.abs(renderLine - actualLine)) {
                     renderLine = altLine;
                 }
