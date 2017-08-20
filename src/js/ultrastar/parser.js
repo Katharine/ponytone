@@ -10,6 +10,7 @@ export class Song {
         this._mp3 = null;
         this._background = null;
         this._video = null;
+        this.videogap = 0;
         this.parse(text);
     }
 
@@ -143,6 +144,9 @@ export class Song {
                 break;
             case "VIDEO":
                 this._video = value;
+                break;
+            case "VIDEOGAP":
+                this.videogap = parseFloat(value);
                 break;
             default:
                 console.warn(`Got unknown command ${command}; ignoring.`)

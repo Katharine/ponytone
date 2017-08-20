@@ -23,6 +23,7 @@ export class GameDisplay extends EventEmitter {
         this.running = false;
         this._ready = false;
         this._scaleInterval = null;
+        this._gapTimer = null;
     }
 
     createGameLayout() {
@@ -38,8 +39,10 @@ export class GameDisplay extends EventEmitter {
         this.videoElement.preload = "auto";
         this.videoElement.poster = this.song.background;
         this.videoElement.addEventListener("canplaythrough", () => {
-            this._ready = true;
-            this.emit("ready");
+            if (!this._ready) {
+                this._ready = true;
+                this.emit("ready");
+            }
         });
 
         this.div = document.createElement('div');
@@ -79,7 +82,14 @@ export class GameDisplay extends EventEmitter {
         this.running = true;
         this.videoElement.currentTime = 0;
         if (this.videoElement.src) {
-            this.videoElement.play();
+            if (this.song.videogap >= 0) {
+                this.videoElement.currentTime = this.song.videogap;
+                this.videoElement.play();
+            } else {
+                console.log(`Delaying video playback by ${-this.song.videogap} seconds...`);
+                this.videoElement.currentTime = 0;
+                this._gapTimer = setTimeout(() => {console.log("video start."); this.videoElement.play()}, -this.song.videogap * 1000);
+            }
         }
         this._scaleInterval = setInterval(() => this._scaleCanvas(), 1000);
         requestAnimationFrame(() => this._renderFrame());
@@ -87,6 +97,7 @@ export class GameDisplay extends EventEmitter {
 
     stop() {
         clearInterval(this._scaleInterval);
+        clearTimeout(this._gapTimer);
         this.videoElement.pause();
         this.running = false;
     }
@@ -95,11 +106,20 @@ export class GameDisplay extends EventEmitter {
         if (!this.running) {
             return;
         }
-        if (this.videoElement.src && Math.abs(this.videoElement.currentTime - this.audio.currentTime) > 0.2) {
-            console.log('A/V desync; disabling.');
-            this.videoElement.removeAttribute('src');
-            this.videoElement.load();
+        if (this.videoElement.src) {
+            if (this.audio.currentTime >= Math.max(0, -this.song.videogap)) {
+                if (Math.abs(this.videoElement.currentTime - this.audio.currentTime - this.song.videogap) > 0.2) {
+                    console.log('A/V desync; disabling.', this.videoElement.currentTime, this.audio.currentTime, this.song.videogap);
+                    this.videoElement.removeAttribute('src');
+                    this.videoElement.load();
+                }
+            }
         }
+        // if (this.videoElement.src && Math.abs(this.videoElement.currentTime - this.audio.currentTime) > 0.2) {
+        //     console.log('A/V desync; disabling.');
+        //     this.videoElement.removeAttribute('src');
+        //     this.videoElement.load();
+        // }
 
         let time = (this.audio.currentTime * 1000) | 0;
 
