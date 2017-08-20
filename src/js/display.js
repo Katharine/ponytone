@@ -1,6 +1,6 @@
 "use strict";
 
-import {LyricRenderer, NoteRenderer, ScoreRenderer} from "./ultrastar/render";
+import {LyricRenderer, NoteRenderer, ScoreRenderer, TitleRenderer} from "./ultrastar/render";
 
 let EventEmitter = require("events");
 
@@ -76,6 +76,29 @@ export class GameDisplay extends EventEmitter {
 
     get ready() {
         return this._ready;
+    }
+
+    title() {
+        let titleRenderer = new TitleRenderer(this.canvasElement, this.song);
+        this.videoElement.currentTime = 0;
+        let p = new Promise((resolve, reject) => {
+            let opacity = 1;
+            titleRenderer.render();
+            setTimeout(() => {
+                let fade = () => {
+                    opacity -= 0.05;
+                    if (opacity <= 0) {
+                        this.canvasElement.getContext('2d').clearRect(0, 0, this.canvasElement.clientWidth, this.canvasElement.clientHeight);
+                        resolve();
+                    } else {
+                        titleRenderer.render(opacity);
+                        requestAnimationFrame(fade);
+                    }
+                };
+                requestAnimationFrame(fade);
+            }, 3000);
+        });
+        return p;
     }
 
     start() {

@@ -30,13 +30,15 @@ export class GameSession extends EventEmitter {
     }
 
     start() {
-        if (this.ready) {
-            this._startTime = this._ac.currentTime;
-            this.audio.start();
-            this._startedPlaying();
-        } else {
-            throw new Error("Not ready yet.");
-        }
+        this.display.title().then(() => {
+            if (this.ready) {
+                this._startTime = this._ac.currentTime;
+                this.audio.start();
+                this._startedPlaying();
+            } else {
+                throw new Error("Not ready yet.");
+            }
+        });
     }
 
     _prepare(songText) {

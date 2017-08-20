@@ -191,3 +191,36 @@ export class ScoreRenderer {
         ctx.restore();
     }
 }
+
+export class TitleRenderer {
+    constructor(canvas, song) {
+        this.canvas = canvas;
+        this.song = song;
+        this.context = this.canvas.getContext('2d');
+        this.rect = {w: canvas.clientWidth, h: canvas.clientHeight};
+    }
+
+    render(opacity) {
+        let ctx = this.context;
+        ctx.clearRect(0, 0, this.rect.w, this.rect.h);
+        ctx.save();
+        ctx.globalAlpha = opacity || 1;
+        ctx.font = '80px sans-serif';
+        ctx.fillStyle = 'rgba(30, 30, 30, 0.7)';
+        ctx.fillRect(0, 0, this.rect.w, this.rect.h);
+        ctx.strokeStyle = 'black';
+        ctx.fillStyle = 'white';
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.song.metadata.title, this.rect.w / 2, 190, this.rect.w);
+        ctx.font = '55px sans-serif';
+        ctx.fillText(this.song.metadata.artist, this.rect.w / 2, 300, this.rect.w);
+        ctx.font = '40px sans-serif';
+        let y = 240;
+        ctx.fillText(`Transcribed by ${this.song.metadata.creator}`, this.rect.w / 2, 440, this.rect.w);
+        if (this.song.metadata.comment && this.song.metadata.comment.indexOf('mylittlekaraoke') > -1) {
+            ctx.fillText("Originally created for My Little Karaoke", this.rect.w / 2, 500, this.rect.w);
+        }
+        ctx.restore();
+    }
+}
