@@ -137,7 +137,7 @@ export class Song {
                 this._background = value;
                 break;
             case "BPM":
-                this.bpm = parseFloat(value, 10);
+                this.bpm = parseFloat(value);
                 break;
             case "GAP":
                 this.gap = parseInt(value, 10);
