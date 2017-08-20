@@ -134,14 +134,13 @@ WEBPACK_LOADER = {
     }
 }
 
-host, port = urlparse(os.environ.get('REDIS_URL', 'redis://localhost:6379')).netloc.split(':')
-port = int(port)
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
 
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "asgi_redis.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [(host, port)],
+            "hosts": [REDIS_URL],
         },
         "ROUTING": "ponytone.routing.channel_routing",
     },
