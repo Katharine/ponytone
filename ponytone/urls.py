@@ -16,9 +16,10 @@ Including another URLconf
 from django.conf.urls import url
 from django.contrib import admin
 
-from karaoke.views import index
+from karaoke.views import song, index
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
-    url(r'^song/(?P<song>.+?)$', index),
+    url(r'^song/(?P<song_id>.+?)$', song, name='song'),
+    url(r'^$', index, name='index'),
 ]
