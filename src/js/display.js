@@ -35,7 +35,6 @@ export class GameDisplay extends EventEmitter {
         this.videoElement = document.createElement('video');
         this.videoElement.height = this.height;
         this.videoElement.width = this.width;
-        this.videoElement.src = this.song.video;
         this.videoElement.preload = "auto";
         this.videoElement.poster = this.song.background;
         this.videoElement.addEventListener("canplaythrough", () => {
@@ -61,6 +60,15 @@ export class GameDisplay extends EventEmitter {
         this.noteRenderers[0].setPlayer(this.players[0]);
         this.scoreRenderers = [new ScoreRenderer(this.canvasElement, 1150, 350, 110, 60)];
         this.scoreRenderers[0].setPlayer(this.players[0]);
+
+        if (this.song.video) {
+            this.videoElement.src = this.song.video;
+        } else {
+            setTimeout(() => {
+                this._ready = true;
+                this.emit("ready");
+            }, 0);
+        }
     }
 
     get ready() {

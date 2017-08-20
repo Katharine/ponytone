@@ -158,7 +158,7 @@ export class Song {
     }
 
     get video() {
-        return this.baseURL + '/' + this._video;
+        return this._video ? this.baseURL + '/' + this._video : null;
     }
 }
 
