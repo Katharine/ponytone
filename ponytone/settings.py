@@ -26,18 +26,18 @@ SECRET_KEY = 'z-kspy7)e283mede#4f&=-rxff@3az5=(uo-lzn7u%wbkmfctf'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['ponytone.online', 'ponytone.dokku.kathar.in', 'localhost']
 
 
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    # 'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
+    'whitenoise.runserver_nostatic',
     "webpack_loader",
     "karaoke",
     "channels",
