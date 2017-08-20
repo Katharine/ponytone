@@ -31,10 +31,13 @@ export class LocalPlayer {
         // console.log(expected);
         let actual = this.singing.notes;
         let i = 0;
-        let lastNote = expected[expected.length - 1];
-        let scorePerBeat = 10000 / (lastNote.beat + lastNote.length);
+        let totalBeats = expected.filter((x) => x.type !== 'F').reduce((a, v) => a + v.length, 0);
+        let scorePerBeat = 10000 / totalBeats;
         let score = 0;
         for(let note of expected) {
+            if (note.type === 'F') {
+                continue;
+            }
             while (actual[i] && actual[i].time < note.beat) ++i;
             while (actual[i] && actual[i].time < note.beat + note.length) {
                 if (!actual[i]) {
