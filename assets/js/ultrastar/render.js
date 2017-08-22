@@ -137,7 +137,7 @@ export class NoteRenderer {
             ctx.lineWidth = 10;
             ctx.lineCap = 'butt';
             ctx.strokeStyle = 'black';
-            for (let note of this.player.singing.notesInRange(startBeat, endBeat)) {
+            for (let note of this.player.notesInRange(startBeat, endBeat)) {
                 let beat = note.time;
                 let actual = line.getNoteNearBeat(beat);
                 let renderLine = (note.note - lowest + 4) % 20;

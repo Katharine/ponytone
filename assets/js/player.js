@@ -25,6 +25,10 @@ export class LocalPlayer {
         this.singing.stop();
     }
 
+    notesInRange(start, end) {
+        return this.singing.notesInRange(start, end);
+    }
+
     get score() {
         let part = this.song.parts[this.part];
         let expected = part.map((x) => x.notes).reduce((a, c) => a.concat(c), []);
@@ -52,5 +56,38 @@ export class LocalPlayer {
         }
         // console.log(i);
         return Math.round(score);
+    }
+}
+
+export class RemotePlayer {
+    constructor(song, part, audio) {
+        console.log(song, part, audio);
+        this.song = song;
+        this.part = part;
+        this.audio = audio;
+    }
+
+    setSong(song) {
+        this.song = song;
+    }
+
+    prepare() {
+
+    }
+
+    start() {
+
+    }
+
+    stop() {
+
+    }
+
+    notesInRange(start, end) {
+        return [];
+    }
+
+    get score() {
+        return 0;
     }
 }

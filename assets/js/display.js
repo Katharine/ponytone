@@ -52,17 +52,34 @@ export class GameDisplay extends EventEmitter {
         this.div.appendChild(this.canvasElement);
         this.container.appendChild(this.div);
 
-        if (this.players.length !== 1) {
-            throw new Error("Only one player supported right now.");
+        let d = (x, y, w, h) => ({x, y, w, h});
+
+        let lyrics = [d(0, 660, 1280, 60), d(0, 0, 1280, 60)];
+        let layouts = {
+            1: [{notes: d(20, 410, 1240, 250), score: d(1150, 350, 110, 60)}],
+            2: [{notes: d(20, 410, 1240, 250), score: d(1150, 350, 110, 60)},
+                {notes: d(20, 60, 1240, 250), score: d(20, 310, 110, 60)}],
+        };
+
+        for (let i = 0; i < this.song.parts.length; ++i) {
+            let l = lyrics[i];
+            let renderer = new LyricRenderer(this.canvasElement, l.x, l.y, l.w, l.h);
+            renderer.setSong(this.song, i);
+            this.lyricRenderers.push(renderer);
         }
 
-        this.lyricRenderers = [new LyricRenderer(this.canvasElement, 0, 660, 1280, 60)];
-        this.lyricRenderers[0].setSong(this.song);
-        this.noteRenderers = [new NoteRenderer(this.canvasElement, 20, 410, 1240, 250)];
-        this.noteRenderers[0].setSong(this.song);
-        this.noteRenderers[0].setPlayer(this.players[0]);
-        this.scoreRenderers = [new ScoreRenderer(this.canvasElement, 1150, 350, 110, 60)];
-        this.scoreRenderers[0].setPlayer(this.players[0]);
+        for (let i = 0; i < this.players.length; ++i) {
+            let l = layouts[this.players.length][i];
+            console.log(i, l);
+            let notes = new NoteRenderer(this.canvasElement, l.notes.x, l.notes.y, l.notes.w, l.notes.h);
+            notes.setSong(this.song, this.players[i].part);
+            notes.setPlayer(this.players[i]);
+            this.noteRenderers.push(notes);
+
+            let score = new ScoreRenderer(this.canvasElement, l.score.x, l.score.y, l.score.w, l.score.h);
+            score.setPlayer(this.players[i]);
+            this.scoreRenderers.push(score);
+        }
 
         if (this.song.video) {
             this.videoElement.src = this.song.video;
