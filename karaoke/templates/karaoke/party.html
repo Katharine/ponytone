@@ -16,13 +16,13 @@
     </script>
 </head>
 <body>
-<div id="game-container">
+<div id="game-container" style="position: absolute; top: 0; left: 0; background-color: white;">
 </div>
 <ul id="party-container">
 
 </ul>
 <table id="loading" style="width: 100%; height: 100%; background-color: white; position: absolute; top: 0; left: 0; display: none;">
-    <tr><td style="text-align: center; vertical-align: top;"><img id="loading-image"></td></tr>
+    <tr><td style="text-align: center; vertical-align: middle; width: 100%;"><img id="loading-image"></td></tr>
 </table>
 <button id="ready-button">Ready!</button>
 {% render_bundle 'party' %}

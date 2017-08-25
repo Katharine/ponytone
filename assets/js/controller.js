@@ -17,11 +17,18 @@ export class GameController {
         this.lastTransmittedBeat = -1;
         this.beatTransmitInterval = null;
         this.remotePlayers = {};
+        window.addEventListener('resize', () => this._handleResize());
+    }
+
+    _handleResize() {
+        if (this.session) {
+            this.session.setSize(window.innerWidth, window.innerHeight);
+        }
     }
 
     _loadTrack(track) {
         document.getElementById('loading').style.display = 'table';
-        this.session = new GameSession(this.gameContainer, 1280, 720, `https://music.ponytone.online/${track}/notes.txt`);
+        this.session = new GameSession(this.gameContainer, window.innerWidth, window.innerHeight, `https://music.ponytone.online/${track}/notes.txt`);
 
         this.session.prepare();
         this.session.on('ready', () => this._handleTrackLoaded());

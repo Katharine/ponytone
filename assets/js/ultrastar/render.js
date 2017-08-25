@@ -13,6 +13,10 @@ export class LyricRenderer {
         this.part = part || 0;
     }
 
+    setRect(x, y, w, h) {
+        this.rect = {x, y, w, h};
+    }
+
     setActiveColour(colour) {
         this.activeColour = colour;
     }
@@ -24,7 +28,7 @@ export class LyricRenderer {
         ctx.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
         ctx.fillStyle = 'rgba(50, 50, 50, 0.4)';
         ctx.fillRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
-        ctx.font = '48px sans-serif';
+        ctx.font = `${this.rect.h / 1.25}px sans-serif`;
         ctx.strokeStyle = 'black';
         ctx.fillStyle = 'white';
         ctx.textBaseline = 'middle';
@@ -78,6 +82,10 @@ export class NoteRenderer {
         this.part = part || 0;
     }
 
+    setRect(x, y, w, h) {
+        this.rect = {x, y, w, h};
+    }
+
     setColour(colour) {
         this.colour = colour;
     }
@@ -115,7 +123,7 @@ export class NoteRenderer {
         ctx.save();
         let beatWidth = this.rect.w / (endBeat - startBeat);
         let lowest = line.notes.reduce((min, note) => note.pitch < min ? note.pitch : min, Infinity);
-        ctx.lineWidth = 20;
+        ctx.lineWidth = this.rect.h / 12.5;
         ctx.lineCap = 'round';
         ctx.strokeStyle = this.colour;
         for (let note of line.notes) {
@@ -126,8 +134,8 @@ export class NoteRenderer {
             let y = this.rect.y + (this.rect.h - (line * (this.rect.h / 20))) - this.rect.h / 20;
 
             ctx.beginPath();
-            ctx.moveTo(this.rect.x + 10 + beatWidth * (note.beat - startBeat), y);
-            ctx.lineTo(this.rect.x - 10 + beatWidth * (note.beat - startBeat + note.length), y);
+            ctx.moveTo(this.rect.x + ctx.lineWidth/2 + beatWidth * (note.beat - startBeat), y);
+            ctx.lineTo(this.rect.x - ctx.lineWidth/2 + beatWidth * (note.beat - startBeat + note.length), y);
             ctx.stroke();
         }
         this.context.restore();
@@ -173,6 +181,10 @@ export class ScoreRenderer {
         this.colour = colour;
     }
 
+    setRect(x, y, w, h) {
+        this.rect = {x, y, w, h};
+    }
+
     setPlayer(player) {
         this.player = player;
     }
@@ -180,7 +192,7 @@ export class ScoreRenderer {
     render() {
         let ctx = this.canvas.getContext('2d');
         ctx.save();
-        ctx.font = '48px sans-serif';
+        ctx.font = `${this.rect.h/1.25}px sans-serif`;
         ctx.strokeStyle = 'white';
         ctx.fillStyle = this.colour;
         ctx.textBaseline = 'top';
@@ -205,21 +217,21 @@ export class TitleRenderer {
         ctx.clearRect(0, 0, this.rect.w, this.rect.h);
         ctx.save();
         ctx.globalAlpha = opacity || 1;
-        ctx.font = '80px sans-serif';
         ctx.fillStyle = 'rgba(30, 30, 30, 0.7)';
         ctx.fillRect(0, 0, this.rect.w, this.rect.h);
         ctx.strokeStyle = 'black';
         ctx.fillStyle = 'white';
         ctx.textBaseline = 'top';
         ctx.textAlign = 'center';
-        ctx.fillText(this.song.metadata.title, this.rect.w / 2, 190, this.rect.w);
-        ctx.font = '55px sans-serif';
-        ctx.fillText(this.song.metadata.artist, this.rect.w / 2, 300, this.rect.w);
-        ctx.font = '40px sans-serif';
+        ctx.font = `${this.rect.h/9}px sans-serif`;
+        ctx.fillText(this.song.metadata.title, this.rect.w / 2, 0.2638888889 * this.rect.h, this.rect.w);
+        ctx.font = `${this.rect.h*0.07638888889}px sans-serif`;
+        ctx.fillText(this.song.metadata.artist, this.rect.w / 2, 0.4166666667 * this.rect.h, this.rect.w);
+        ctx.font = `${this.rect.h/18}px sans-serif`;
         let y = 240;
-        ctx.fillText(`Transcribed by ${this.song.metadata.creator}`, this.rect.w / 2, 440, this.rect.w);
+        ctx.fillText(`Transcribed by ${this.song.metadata.creator}`, this.rect.w / 2, 0.61111 * this.rect.h, this.rect.w);
         if (this.song.metadata.comment && this.song.metadata.comment.indexOf('mylittlekaraoke') > -1) {
-            ctx.fillText("Originally created for My Little Karaoke", this.rect.w / 2, 500, this.rect.w);
+            ctx.fillText("Originally created for My Little Karaoke", this.rect.w / 2, 0.6944444444 * this.rect.h, this.rect.w);
         }
         ctx.restore();
     }

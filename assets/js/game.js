@@ -22,6 +22,14 @@ export class GameSession extends EventEmitter {
         this._ac = new (window.AudioContext || window.webkitAudioContext)();
     }
 
+    setSize(width, height) {
+        this.width = width;
+        this.height = height;
+        if (this.display) {
+            this.display.setSize(width, height);
+        }
+    }
+
     prepare() {
         fetch(this.songURL)
             .then((response) => response.text())
