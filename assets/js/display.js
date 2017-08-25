@@ -197,6 +197,9 @@ export class GameDisplay extends EventEmitter {
         clearTimeout(this._gapTimer);
         this.videoElement.pause();
         this.running = false;
+        this.container.style.overflow = 'unset';
+        this.container.style.width = `unset`;
+        this.container.style.height = `unset`;
     }
 
     _renderFrame(manual) {
