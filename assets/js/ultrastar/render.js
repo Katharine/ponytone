@@ -28,7 +28,7 @@ export class LyricRenderer {
         ctx.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
         ctx.fillStyle = 'rgba(50, 50, 50, 0.4)';
         ctx.fillRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
-        ctx.font = `${this.rect.h / 1.25}px sans-serif`;
+        ctx.font = `${this.rect.h * 0.95}px sans-serif`;
         ctx.strokeStyle = 'black';
         ctx.fillStyle = 'white';
         ctx.textBaseline = 'middle';
@@ -41,6 +41,9 @@ export class LyricRenderer {
         let totalWidth = ctx.measureText(lineText).width;
         let x = this.rect.x + (this.rect.w/2 - totalWidth/2);
         let y = this.rect.y + this.rect.h/2;
+        if (window.chrome) {
+            y -= (this.rect.h * 0.95) / 11;
+        }
         for (let note of line.notes) {
             let active = (beat >= note.beat && beat < note.beat + note.length);
             if (active) {
@@ -192,14 +195,19 @@ export class ScoreRenderer {
     render() {
         let ctx = this.canvas.getContext('2d');
         ctx.save();
-        ctx.font = `${this.rect.h/1.25}px sans-serif`;
+        ctx.font = `${this.rect.h/1}px sans-serif`;
         ctx.strokeStyle = 'white';
         ctx.fillStyle = this.colour;
         ctx.textBaseline = 'top';
-        ctx.textAlign = 'left';
+        ctx.textAlign = 'right';
+        let y = this.rect.y;
+        if (window.chrome) {
+            y -= this.rect.h / 11;
+        }
         ctx.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
-        ctx.fillText(this.player.score, this.rect.x, this.rect.y);
-        ctx.strokeText(this.player.score, this.rect.x, this.rect.y);
+        let text = `${this.player.nick}: ${this.player.score}`;
+        ctx.fillText(text, this.rect.x+this.rect.w, y, this.rect.w);
+        ctx.strokeText(text, this.rect.x+this.rect.w, y, this.rect.w);
         ctx.restore();
     }
 }

@@ -61,7 +61,7 @@ export class GameController {
         keys.sort();
         for (let [peer, member] of keys.map((k) => [k, this.party.party[k]])) {
             if (member.me) {
-                let player = new LocalPlayer(this.session.song, 0, this.session)
+                let player = new LocalPlayer(member.nick, this.session.song, 0, this.session);
                 this.session.addPlayer(player);
                 player.prepare();
                 continue;

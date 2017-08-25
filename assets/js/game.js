@@ -67,7 +67,6 @@ export class GameSession extends EventEmitter {
         this.audio.addEventListener('ended', () => this._stoppedPlaying());
         this._fetchAudio();
 
-        this.players = [];
         this.display = new GameDisplay(this.container, this.width, this.height, this.song, this.players, this);
         this.display.on('ready', () => this._maybeReady());
         this.display.prepareVideo();

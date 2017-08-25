@@ -2,7 +2,8 @@
 import {Singing} from "./audio/live";
 
 export class LocalPlayer {
-    constructor(song, part, audio) {
+    constructor(nick, song, part, audio) {
+        this.nick = nick;
         this.song = song;
         this.part = part;
         this.singing = null;
@@ -32,7 +33,6 @@ export class LocalPlayer {
     get score() {
         let part = this.song.parts[this.part];
         let expected = part.map((x) => x.notes).reduce((a, c) => a.concat(c), []);
-        // console.log(expected);
         let actual = this.singing.notes;
         let i = 0;
         let totalBeats = expected.filter((x) => x.type !== 'F').reduce((a, v) => a + v.length, 0);
@@ -54,27 +54,15 @@ export class LocalPlayer {
                 ++i;
             }
         }
-        // console.log(i);
         return Math.round(score);
     }
 }
 
 export class RemotePlayer {
-    constructor(song, part, audio) {
-        console.log(song, part, audio);
-        this.song = song;
-        this.part = part;
-        this.audio = audio;
+    constructor(nick) {
+        this.nick = nick;
         this.score = 0;
         this.notes = [];
-    }
-
-    setSong(song) {
-        this.song = song;
-    }
-
-    prepare() {
-
     }
 
     start() {
