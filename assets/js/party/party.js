@@ -105,8 +105,8 @@ export class Party extends EventEmitter {
     }
 
     _broadcastTrack() {
-        this.network.broadcast({action: "loadTrack", track: "batty"});
-        this._handleLoadTrack("batty");
+        this.network.broadcast({action: "loadTrack", track: "ladadee"});
+        this._handleLoadTrack("ladadee");
     }
 
     _handleLoadTrack(track) {
