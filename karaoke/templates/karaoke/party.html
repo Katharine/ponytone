@@ -1,0 +1,27 @@
+{% load render_bundle from webpack_loader %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script type="text/javascript">
+        // This doesn't go through Babel, so be kind to older browsers.
+        var _pageData = {
+            "partyID": "{{ party_id | escapejs }}",
+            "turnAuth": {
+                "username": "{{ turn_user | escapejs }}",
+                "password": "{{ turn_pass | escapejs }}"
+            }
+        };
+    </script>
+</head>
+<body>
+<div id="game-container">
+</div>
+<ul id="party-list">
+
+</ul>
+<button id="ready-button" disabled>Ready!</button>
+{% render_bundle 'party' %}
+</body>
+</html>

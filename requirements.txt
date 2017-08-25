@@ -16,5 +16,5 @@ redis==2.10.6
 six==1.10.0
 Twisted==17.5.0
 txaio==2.8.1
-whitenoise==3.3.0
+whitenoise==4.0b3
 zope.interface==4.4.2

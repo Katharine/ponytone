@@ -14,14 +14,9 @@ Including another URLconf
     2. Add a URL to urlpatterns:  url(r'^blog/', include('blog.urls'))
 """
 from django.conf.urls import url, include
-from django.contrib import admin
 
-from karaoke.views import song, index, ntp
+from karaoke.views import party
 
 urlpatterns = [
-    url(r'^admin/', admin.site.urls),
-    url(r'^song/(?P<song_id>.+?)$', song, name='song'),
-    url(r'^ntp$', ntp, name='ntp'),
-    url(r'^$', index, name='index'),
-    url(r'^party/', include('karaoke.urls', namespace='karaoke')),
+    url(r'^(?P<party_id>[a-zA-Z0-9_-]+)$', party),
 ]

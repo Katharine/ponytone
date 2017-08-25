@@ -2,7 +2,7 @@
 
 import {Song} from "./ultrastar/parser";
 import {GameDisplay} from "./display";
-import {LocalPlayer} from "./player";
+import {LocalPlayer, RemotePlayer} from "./player";
 let EventEmitter = require("events");
 
 export class GameSession extends EventEmitter {
@@ -48,7 +48,7 @@ export class GameSession extends EventEmitter {
         this.audio.connect(this._ac.destination);
         this.audio.addEventListener('ended', () => this._stoppedPlaying());
         this._fetchAudio();
-        this.players = [new LocalPlayer(this.song, 0, this)];
+        this.players = [new LocalPlayer(this.song, 0, this), new RemotePlayer(this.song, this.song.parts.length - 1, this)];
         for (let player of this.players) {
             player.prepare();
         }
