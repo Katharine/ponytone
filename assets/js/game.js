@@ -30,6 +30,7 @@ export class GameSession extends EventEmitter {
     }
 
     start() {
+        this.display.createGameLayout();
         this.display.title().then(() => {
             if (this.ready) {
                 this._startTime = this._ac.currentTime;
@@ -41,6 +42,15 @@ export class GameSession extends EventEmitter {
         });
     }
 
+    cleanup() {
+        this.display.stop();
+        this.container.innerHTML = '';
+    }
+
+    addPlayer(player) {
+        this.players.push(player);
+    }
+
     _prepare(songText) {
         this.song = new Song(this._baseURL, songText);
 
@@ -48,13 +58,11 @@ export class GameSession extends EventEmitter {
         this.audio.connect(this._ac.destination);
         this.audio.addEventListener('ended', () => this._stoppedPlaying());
         this._fetchAudio();
-        this.players = [new LocalPlayer(this.song, 0, this), new RemotePlayer(this.song, this.song.parts.length - 1, this)];
-        for (let player of this.players) {
-            player.prepare();
-        }
+
+        this.players = [];
         this.display = new GameDisplay(this.container, this.width, this.height, this.song, this.players, this);
         this.display.on('ready', () => this._maybeReady());
-        this.display.createGameLayout();
+        this.display.prepareVideo();
     }
 
     _fetchAudio() {
@@ -87,12 +95,22 @@ export class GameSession extends EventEmitter {
         for (let player of this.players) {
             player.stop();
         }
+        this.emit("finished");
     }
 
     _definitelyReady() {
         console.log('definitelyReady');
         this._ready = true;
         this.emit('ready');
+    }
+
+    get localPlayer() {
+        for (let player of this.players) {
+            if (player instanceof LocalPlayer) {
+                return player;
+            }
+        }
+        return null;
     }
 
     get currentTime() {

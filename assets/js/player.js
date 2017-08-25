@@ -65,6 +65,8 @@ export class RemotePlayer {
         this.song = song;
         this.part = part;
         this.audio = audio;
+        this.score = 0;
+        this.notes = [];
     }
 
     setSong(song) {
@@ -83,11 +85,11 @@ export class RemotePlayer {
 
     }
 
-    notesInRange(start, end) {
-        return [];
+    addNotes(notes) {
+        this.notes.push(...notes);
     }
 
-    get score() {
-        return 0;
+    notesInRange(start, end) {
+        return this.notes.filter((x) => start <= x.time && x.time < end);
     }
 }

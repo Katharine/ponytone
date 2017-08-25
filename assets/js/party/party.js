@@ -3,6 +3,16 @@ import {fixedTimestamp} from "../util/ntp";
 
 let EventEmitter = require("events");
 
+// sequence:
+// 1) everyone joins
+// 2) playlist constructed
+// 3) everyone hits 'ready'
+// 4) master broadcasts song selection
+// 5) wait for everyone to reach ready state, announcing when done
+// 6) master announces start time
+// 7) game starts
+// 8) song completes; return to 3
+
 export class Party extends EventEmitter {
     constructor(nick) {
         super();
@@ -15,6 +25,8 @@ export class Party extends EventEmitter {
         this.network.on('readyToGo', (message, peer) => this._handleReady(peer));
         this.network.on('dataChannelEstablished', (peer) => this._handleDataReady(peer));
         this.network.on('startGame', (message, peer) => this._handleStartGame(message.time));
+        this.network.on('loadTrack', (message, peer) => this._handleLoadTrack(message.track));
+        this.network.on('trackLoaded', (message, peer) => this._handleTrackLoaded(peer));
     }
 
     _makeMember(nick) {
@@ -24,6 +36,7 @@ export class Party extends EventEmitter {
             ping: null,
             ready: false,
             me: false,
+            loaded: false,
         }
     }
 
@@ -66,7 +79,7 @@ export class Party extends EventEmitter {
         if (pending === 0) {
             if (this.isMaster) {
                 console.log("Time to begin!");
-                this._startGame();
+                this._broadcastTrack();
             } else {
                 console.log("Waiting for the master to start...");
             }
@@ -75,16 +88,46 @@ export class Party extends EventEmitter {
         }
     }
 
+    _handleTrackLoaded(peer) {
+        this.party[peer].loaded = true;
+        this.emit('partyUpdated');
+        let pending = Object.values(this.party).reduce((a, v) => a + (v.loaded ? 0 : 1), 0);
+        if (pending === 0) {
+            if (this.isMaster) {
+                console.log("Time to begin!");
+                this._startGame();
+            } else {
+                console.log("Waiting for the master to start...");
+            }
+        } else {
+            console.log(`${pending} left to finish downloading...`);
+        }
+    }
+
+    _broadcastTrack() {
+        this.network.broadcast({action: "loadTrack", track: "batty"});
+        this._handleLoadTrack("batty");
+    }
+
+    _handleLoadTrack(track) {
+        for (let member of Object.values(this.party)) {
+            member.loaded = false;
+        }
+        this.emit("partyUpdated");
+        this.emit("loadTrack", track);
+    }
+
+    trackDidLoad() {
+        this.network.broadcast({action: "trackLoaded"});
+        this._handleTrackLoaded(this.network.channelName);
+    }
+
     _startGame() {
         let maxPing = Object.values(this.party).reduce((a, v) => a + (v.ping||0), 0) / 2;
-        let startTime = fixedTimestamp() + maxPing * 1.5;
+        let startTime = Math.round(fixedTimestamp() + maxPing * 1.5);
+        startTime += 50; // because if it's very short other issues can appear.
         this._handleStartGame(startTime);
-        for (let [peer, member] of Object.entries(this.party)) {
-            if (member.me) {
-                continue;
-            }
-            this.network.sendTo(peer, {action: "startGame", time: startTime});
-        }
+        this.network.broadcast({action: "startGame", time: startTime});
     }
 
     _handleStartGame(time) {
@@ -98,6 +141,14 @@ export class Party extends EventEmitter {
     setReady() {
         this.network.broadcast({action: "readyToGo"});
         this._handleReady(this.network.channelName);
+    }
+
+    trackEnded() {
+        for (let member of Object.values(this.party)) {
+            member.loaded = false;
+            member.ready = false;
+        }
+        this.emit('partyUpdated');
     }
 
     get isMaster() {

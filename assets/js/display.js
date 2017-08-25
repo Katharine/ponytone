@@ -27,23 +27,12 @@ export class GameDisplay extends EventEmitter {
     }
 
     createGameLayout() {
+        console.log("players", this.players);
         this.canvasElement = document.createElement('canvas');
         this._scaleCanvas();
         this.canvasElement.style.position = 'absolute';
         this.canvasElement.style.top = 0;
         this.canvasElement.style.left = 0;
-
-        this.videoElement = document.createElement('video');
-        this.videoElement.height = this.height;
-        this.videoElement.width = this.width;
-        this.videoElement.preload = "auto";
-        this.videoElement.poster = this.song.background;
-        this.videoElement.addEventListener("canplaythrough", () => {
-            if (!this._ready) {
-                this._ready = true;
-                this.emit("ready");
-            }
-        });
 
         this.div = document.createElement('div');
         this.div.style.position = 'relative';
@@ -80,6 +69,20 @@ export class GameDisplay extends EventEmitter {
             score.setPlayer(this.players[i]);
             this.scoreRenderers.push(score);
         }
+    }
+
+    prepareVideo() {
+        this.videoElement = document.createElement('video');
+        this.videoElement.height = this.height;
+        this.videoElement.width = this.width;
+        this.videoElement.preload = "auto";
+        this.videoElement.poster = this.song.background;
+        this.videoElement.addEventListener("canplaythrough", () => {
+            if (!this._ready) {
+                this._ready = true;
+                this.emit("ready");
+            }
+        });
 
         if (this.song.video) {
             this.videoElement.src = this.song.video;

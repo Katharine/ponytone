@@ -1,0 +1,82 @@
+import {Party} from "./party/party";
+import {GameSession} from "./game";
+import {PartyList} from "./party/partylist";
+import {LocalPlayer, RemotePlayer} from "./player";
+
+export class GameController {
+    constructor(nick, gameContainer, partyContainer) {
+        this.gameContainer = gameContainer;
+        this.party = new Party(nick);
+        this.party.on('loadTrack', (track) => this._loadTrack(track));
+        this.party.on('startGame', () => this._startGame());
+        this.party.network.on('sangNotes', (message, peer) => this._receivedNotes(peer, message.score, message.notes));
+
+        this.partyList = new PartyList(partyContainer, this.party);
+        this.party.on('partyUpdated', () => this._updatePartyList());
+        this.session = null;
+        this.lastTransmittedBeat = -1;
+        this.beatTransmitInterval = null;
+        this.remotePlayers = {};
+    }
+
+    _loadTrack(track) {
+        document.getElementById('loading').style.display = 'table';
+        this.session = new GameSession(this.gameContainer, 1280, 720, `https://music.ponytone.online/${track}/notes.txt`);
+
+        this.session.prepare();
+        this.session.on('ready', () => this._handleTrackLoaded());
+        this.session.on('finished', () => this._handleTrackFinished());
+    }
+
+    _startGame() {
+        document.getElementById('loading').style.display = 'none';
+        this.session.start();
+        this.beatTransmitInterval = setInterval(() => this._transmitBeats(), 66);
+    }
+
+    _transmitBeats() {
+        let notes = this.session.localPlayer.singing.notesInRange(this.lastTransmittedBeat + 1, Infinity);
+        if (!notes.length) {
+            return;
+        }
+        this.lastTransmittedBeat = notes[notes.length - 1].time;
+        this.party.network.broadcast({action: "sangNotes", notes: notes, score: this.session.localPlayer.score});
+    }
+
+    _receivedNotes(peer, score, notes) {
+        let player = this.remotePlayers[peer];
+        player.score = score;
+        player.addNotes(notes);
+    }
+
+    _handleTrackLoaded() {
+        let keys = Object.keys(this.party.party);
+        keys.sort();
+        for (let [peer, member] of keys.map((k) => [k, this.party.party[k]])) {
+            if (member.me) {
+                let player = new LocalPlayer(this.session.song, 0, this.session)
+                this.session.addPlayer(player);
+                player.prepare();
+                continue;
+            }
+            let player = new RemotePlayer(member.nick);
+            this.remotePlayers[peer] = player;
+            this.session.addPlayer(player);
+        }
+
+        this.party.trackDidLoad();
+    }
+
+    _updatePartyList() {
+        this.partyList.update();
+    }
+
+    _handleTrackFinished() {
+        this._transmitBeats();
+        clearInterval(this.beatTransmitInterval);
+        this.lastTransmittedBeat = -1;
+        this.session.cleanup();
+        this.session = null;
+        this.party.trackEnded();
+    }
+}

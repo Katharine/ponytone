@@ -18,10 +18,13 @@
 <body>
 <div id="game-container">
 </div>
-<ul id="party-list">
+<ul id="party-container">
 
 </ul>
-<button id="ready-button" disabled>Ready!</button>
+<table id="loading" style="width: 100%; height: 100%; background-color: white; position: absolute; top: 0; left: 0; display: none;">
+    <tr><td style="text-align: center; vertical-align: top;"><img id="loading-image"></td></tr>
+</table>
+<button id="ready-button">Ready!</button>
 {% render_bundle 'party' %}
 </body>
 </html>
