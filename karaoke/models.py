@@ -24,7 +24,7 @@ class Song(models.Model):
     transcriber = models.CharField(max_length=255, null=True)
     is_mlk = models.BooleanField(default=False)
     genre = models.CharField(max_length=255)
-    updated = models.DateField(db_index=True)
+    updated = models.DateField(db_index=True, null=True)
     language = models.CharField(max_length=255, db_index=True)
     length = models.IntegerField(db_index=True)
     preview_start = models.IntegerField(null=True)
