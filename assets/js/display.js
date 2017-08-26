@@ -142,6 +142,13 @@ export class GameDisplay extends EventEmitter {
                 this.emit("ready");
             }
         });
+        this.videoElement.addEventListener('error', () => {
+            this.videoElement.removeAttribute('src');
+            if (!this._ready) {
+                this._ready = true;
+                this.emit("ready");
+            }
+        });
 
         if (this.song.video) {
             this.videoElement.src = this.song.video;
