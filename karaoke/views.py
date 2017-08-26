@@ -6,13 +6,14 @@ import time
 
 from django.shortcuts import render, HttpResponse, Http404, HttpResponseRedirect, get_object_or_404
 
-from .models import Party, PartyMember, Playlist
+from .models import Party, PartyMember, Playlist, Song
 
 # Create your views here.
 
 
 def index(request):
-    return render(request, "karaoke/index.html")
+    songs = Song.objects.all()
+    return render(request, "karaoke/index.html", {'songs': songs})
 
 
 def song(request, song_id):

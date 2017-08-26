@@ -9,6 +9,7 @@ export class LocalPlayer {
         this.part = part;
         this.singing = null;
         this.audio = audio;
+        this.part = 0;
     }
 
     setSong(song) {
@@ -60,11 +61,12 @@ export class LocalPlayer {
 }
 
 export class RemotePlayer {
-    constructor(nick, colour) {
+    constructor(nick, colour, part) {
         this.nick = nick;
         this.colour = colour;
         this.score = 0;
         this.notes = [];
+        this.part = part || 0;
     }
 
     start() {

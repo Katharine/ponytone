@@ -7,20 +7,9 @@
 <body>
     <h1>Ponytone</h1>
     <ul>
-        <li><a href="/song/batty">Batty!</a></li>
-        <li><a href="/song/catchy">You're In My Head Like a Catchy Song</a></li>
-        <li><a href="/song/cupcakes">Cupcakes</a></li>
-        <li><a href="/song/eileen">Come On Eileen</a></li>
-        <li><a href="/song/ep3">We Better Get The Funk Out</a></li>
-        <li><a href="/song/gettingstronger">Getting Stronger</a></li>
-        <li><a href="/song/goodtime">Good Time</a></li>
-        <li><a href="/song/ladadee">La Da Dee</a></li>
-        <li><a href="/song/luna">Luna</a></li>
-        <li><a href="/song/moonrise">Moonrise</a></li>
-        <li><a href="/song/neverbackdown">Never Back Down</a></li>
-        <li><a href="/song/phileo">The Way She Flies</a></li>
-        <li><a href="/song/trioreformio">Trio Reformio</a></li>
-        <li><a href="/song/untilthesun">Until The Sun</a></li>
+        {% for song in songs %}
+        <li><a href="/song/{{ song.id }}">{{ song.title | escape }}</a></li>
+        {% endfor %}
     </ul>
 </body>
 </html>
