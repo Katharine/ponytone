@@ -36,6 +36,11 @@ export class LyricRenderer {
         let lineText = line.notes.map((x) => x.text).join('');
         let totalWidth = ctx.measureText(lineText).width;
         let x = this.rect.x + (this.rect.w/2 - totalWidth/2);
+        let squashTextRatio = null;
+        if (x < 0) {
+            x = 0;
+            squashTextRatio = this.rect.w / totalWidth;
+        }
         let y = this.rect.y + this.rect.h/2;
         if (window.chrome) {
             y -= (this.rect.h * 0.95) / 11;
@@ -51,9 +56,14 @@ export class LyricRenderer {
                 ctx.save();
                 ctx.font = `italic ${ctx.font}`;
             }
-            ctx.fillText(note.text, x, y);
-            ctx.strokeText(note.text, x, y);
-            x += ctx.measureText(note.text).width;
+            let expectedWidth = ctx.measureText(note.text).width;
+            let maxWidth = undefined;
+            if (squashTextRatio !== null) {
+                maxWidth = expectedWidth * squashTextRatio;
+            }
+            ctx.fillText(note.text, x, y, maxWidth);
+            ctx.strokeText(note.text, x, y, maxWidth);
+            x += maxWidth || expectedWidth;
             if (note.type === 'F') {
                 ctx.restore();
             }
@@ -104,7 +114,7 @@ export class NoteRenderer {
         }
         ctx.restore();
 
-        let line = this.song.getLine(time, this.part);
+        let line = this.song.getLine(time, this.player.part);
         if (!line) {
             return;
         }
