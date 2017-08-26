@@ -17,10 +17,6 @@ export class LyricRenderer {
         this.rect = {x, y, w, h};
     }
 
-    setActiveColour(colour) {
-        this.activeColour = colour;
-    }
-
     render(time) {
         let beat = this.song.msToBeats(time);
         let ctx = this.context;
@@ -76,7 +72,6 @@ export class NoteRenderer {
         this.rect = {x, y, w, h};
         this.song = null;
         this.part = 0;
-        this.colour = '#4287f4';
         this.player = null;
     }
 
@@ -87,10 +82,6 @@ export class NoteRenderer {
 
     setRect(x, y, w, h) {
         this.rect = {x, y, w, h};
-    }
-
-    setColour(colour) {
-        this.colour = colour;
     }
 
     setPlayer(player) {
@@ -128,7 +119,7 @@ export class NoteRenderer {
         let lowest = line.notes.reduce((min, note) => note.pitch < min ? note.pitch : min, Infinity);
         ctx.lineWidth = this.rect.h / 12.5;
         ctx.lineCap = 'round';
-        ctx.strokeStyle = this.colour;
+        ctx.strokeStyle = this.player.colour;
         for (let note of line.notes) {
             if (note.type === 'F') {
                 continue;
@@ -176,12 +167,7 @@ export class ScoreRenderer {
         this.canvas = canvas;
         this.context = this.canvas.getContext('2d');
         this.rect = {x, y, w, h};
-        this.colour = '#4287f4';
         this.player = null;
-    }
-
-    setColour(colour) {
-        this.colour = colour;
     }
 
     setRect(x, y, w, h) {
@@ -197,7 +183,7 @@ export class ScoreRenderer {
         ctx.save();
         ctx.font = `${this.rect.h/1}px sans-serif`;
         ctx.strokeStyle = 'white';
-        ctx.fillStyle = this.colour;
+        ctx.fillStyle = this.player.colour;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'right';
         let y = this.rect.y;

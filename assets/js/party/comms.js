@@ -52,12 +52,13 @@ export class NetworkSession extends EventEmitter {
                     this._establishConnection(message);
                 }
                 this._newMember(message);
-                this.emit("newMember", {nick: message.nick, channel: message.channel});
+                this.emit("newMember", {nick: message.nick, channel: message.channel, colour: message.colour});
                 break;
             case "member_list":
+                this.party = {};
                 console.log("Got member list.");
-                for (let [channel, nick] of Object.entries(message.members)) {
-                    this._newMember({channel, nick});
+                for (let [channel, {nick, colour}] of Object.entries(message.members)) {
+                    this._newMember({channel, nick, colour});
                 }
                 this.emit("gotMemberList", message.members);
                 break;

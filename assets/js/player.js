@@ -2,8 +2,9 @@
 import {Singing} from "./audio/live";
 
 export class LocalPlayer {
-    constructor(nick, song, part, audio) {
+    constructor(nick, colour, song, part, audio) {
         this.nick = nick;
+        this.colour = colour;
         this.song = song;
         this.part = part;
         this.singing = null;
@@ -59,8 +60,9 @@ export class LocalPlayer {
 }
 
 export class RemotePlayer {
-    constructor(nick) {
+    constructor(nick, colour) {
         this.nick = nick;
+        this.colour = colour;
         this.score = 0;
         this.notes = [];
     }

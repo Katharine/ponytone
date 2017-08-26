@@ -29,9 +29,10 @@ export class Party extends EventEmitter {
         this.network.on('trackLoaded', (message, peer) => this._handleTrackLoaded(peer));
     }
 
-    _makeMember(nick) {
+    _makeMember(nick, colour) {
         return {
             nick: nick,
+            colour: colour,
             data: false,
             ping: null,
             ready: false,
@@ -41,8 +42,9 @@ export class Party extends EventEmitter {
     }
 
     _handleMemberList(members) {
-        for (let [channel, nick] of Object.entries(members)) {
-            this.party[channel] = this._makeMember(nick);
+        this.party = {};
+        for (let [channel, {nick, colour}] of Object.entries(members)) {
+            this.party[channel] = this._makeMember(nick, colour);
             if (this.network.channelName === channel) {
                 this.party[channel].me = true;
             }
@@ -51,7 +53,7 @@ export class Party extends EventEmitter {
     }
 
     _handleNewMember(member) {
-        this.party[member.channel] = this._makeMember(member.nick);
+        this.party[member.channel] = this._makeMember(member.nick, member.colour);
         if (this.network.channelName === member.channel) {
             this.party[member.channel].me = true;
         }

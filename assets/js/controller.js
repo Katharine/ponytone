@@ -61,12 +61,12 @@ export class GameController {
         keys.sort();
         for (let [peer, member] of keys.map((k) => [k, this.party.party[k]])) {
             if (member.me) {
-                let player = new LocalPlayer(member.nick, this.session.song, 0, this.session);
+                let player = new LocalPlayer(member.nick, member.colour, this.session.song, 0, this.session);
                 this.session.addPlayer(player);
                 player.prepare();
                 continue;
             }
-            let player = new RemotePlayer(member.nick);
+            let player = new RemotePlayer(member.nick, member.colour);
             this.remotePlayers[peer] = player;
             this.session.addPlayer(player);
         }

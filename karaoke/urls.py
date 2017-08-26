@@ -15,8 +15,9 @@ Including another URLconf
 """
 from django.conf.urls import url, include
 
-from karaoke.views import party
+from karaoke.views import party, create_party
 
 urlpatterns = [
+    url(r'create$', create_party),
     url(r'^(?P<party_id>[a-zA-Z0-9_-]+)$', party),
 ]
