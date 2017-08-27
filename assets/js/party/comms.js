@@ -79,6 +79,9 @@ export class NetworkSession extends EventEmitter {
                 this.rtcConnection(message.origin); // ensure an RTC connection exists in case it cares.
                 this.emit("relayedMessage", message.origin, message.message);
                 break;
+            case "playlist":
+                this.emit("updatedPlaylist", message.playlist);
+                break;
         }
     }
 

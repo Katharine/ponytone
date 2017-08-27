@@ -18,6 +18,7 @@ export class Party extends EventEmitter {
         super();
         this.nick = nick;
         this.party = {};
+        this.queue = [];
         this.network = new NetworkSession(this.nick);
         this.network.on('gotMemberList', (members) => this._handleMemberList(members));
         this.network.on('newMember', (member) => this._handleNewMember(member));
@@ -27,6 +28,7 @@ export class Party extends EventEmitter {
         this.network.on('startGame', (message, peer) => this._handleStartGame(message.time));
         this.network.on('loadTrack', (message, peer) => this._handleLoadTrack(message.track));
         this.network.on('trackLoaded', (message, peer) => this._handleTrackLoaded(peer));
+        this.network.on('updatedPlaylist', (songs) => this._handleUpdatedPlaylist(songs));
     }
 
     _makeMember(nick, colour) {
@@ -107,8 +109,13 @@ export class Party extends EventEmitter {
     }
 
     _broadcastTrack() {
-        this.network.broadcast({action: "loadTrack", track: "ladadee"});
-        this._handleLoadTrack("ladadee");
+        let song = this.queue[0];
+        if (!song) {
+            song = (Math.random() * 900)|0;
+        }
+        this.network.broadcast({action: "loadTrack", track: song});
+        this.network.ws.send({action: "removeFromQueue", song: song});
+        this._handleLoadTrack(song);
     }
 
     _handleLoadTrack(track) {
@@ -140,6 +147,11 @@ export class Party extends EventEmitter {
 
     }
 
+    _handleUpdatedPlaylist(songs) {
+        this.queue = songs;
+        this.emit('updatedPlaylist', songs);
+    }
+
     setReady() {
         this.network.broadcast({action: "readyToGo"});
         this._handleReady(this.network.channelName);
@@ -151,6 +163,10 @@ export class Party extends EventEmitter {
             member.ready = false;
         }
         this.emit('partyUpdated');
+    }
+
+    addToPlaylist(id) {
+        this.network.ws.send({action: "addToQueue", song: id})
     }
 
     get isMaster() {

@@ -1,18 +1,27 @@
 import {Party} from "./party/party";
 import {GameSession} from "./game";
 import {PartyList} from "./party/partylist";
+import {TrackList, TrackQueue} from "./tracklist";
 import {LocalPlayer, RemotePlayer} from "./player";
 
 export class GameController {
     constructor(nick, gameContainer, partyContainer) {
         this.gameContainer = gameContainer;
+
         this.party = new Party(nick);
         this.party.on('loadTrack', (track) => this._loadTrack(track));
         this.party.on('startGame', () => this._startGame());
         this.party.network.on('sangNotes', (message, peer) => this._receivedNotes(peer, message.score, message.notes));
 
+        this.trackList = new TrackList(document.getElementById('track-list-container'));
+        this.trackList.on('songPicked', (song) => this._addSong(song));
+
         this.partyList = new PartyList(partyContainer, this.party);
         this.party.on('partyUpdated', () => this._updatePartyList());
+        this.party.on('updatedPlaylist', (playlist) => this._updatePlaylist(playlist));
+
+        this.trackQueue = new TrackQueue(document.getElementById('queue-scroll'));
+
         this.session = null;
         this.lastTransmittedBeat = -1;
         this.beatTransmitInterval = null;
@@ -78,6 +87,10 @@ export class GameController {
         this.partyList.update();
     }
 
+    _updatePlaylist(playlist) {
+        this.trackQueue.updateQueue(playlist);
+    }
+
     _handleTrackFinished() {
         this._transmitBeats();
         clearInterval(this.beatTransmitInterval);
@@ -85,5 +98,10 @@ export class GameController {
         this.session.cleanup();
         this.session = null;
         this.party.trackEnded();
+    }
+
+    _addSong(song) {
+        console.log(`Adding ${song} to the queue...`);
+        this.party.addToPlaylist(song);
     }
 }

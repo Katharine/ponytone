@@ -38,22 +38,83 @@ button:active {
 
 #queue-container {
     float: left;
-    background-color: red;
     clear: left;
-    height: 60%;
+    height: calc(40% - 10px);
+    margin-top: 10px;
     width: 70%;
+    position: relative;
 }
 
 #track-list-container {
     float: right;
     width: 30%;
     height: 100%;
-    background-color: orange;
+    overflow-y: auto;
+}
+
+.song-list {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    width: 100%;
+}
+
+.song-list li {
+    clear: both;
+    height: 55px;
+    position: relative;
+    width: 100%;
+    cursor: pointer;
+}
+
+.song-list li * {
+    pointer-events: none;
+}
+
+.song-list img {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 50px;
+    height: 50px;
+    border: 1px solid rgb(98, 140, 255);
+    border-radius: 3px;
+}
+
+.song-list .song-title {
+    position: absolute;
+    top: 5px;
+    left: 60px;
+}
+
+.song-list .song-artist {
+    position: absolute;
+    top: 30px;
+    left: 60px;
+    color: rgba(0, 0, 0, 0.6);
+}
+
+.song-title, .song-artist {
+    display: block;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    width: calc(100% - 110px);
+}
+
+.song-list .duration {
+    position: absolute;
+    right: 5px;
+    top: 20px;
+}
+
+.song-list > li:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.2);
 }
 
 #party-container {
     width: 70%;
-    height:30%;
+    height:50%;
     float: left;
     background-color: pink;
 }
@@ -91,4 +152,91 @@ button:active {
 h1 {
     font-family: 'Celestia Redux', sans-serif;
     font-size: 70px;
+}
+
+h2 {
+    font-size: 35px;
+    margin: 0;
+}
+
+#queue-container h2 {
+    text-align: center;
+}
+
+#queue-scroll {
+    position: absolute;
+    top: 45px;
+    overflow: auto;
+    width: calc(100% - 10px);
+    border: 1px solid rgb(98, 140, 255);
+    height: calc(100% - 55px);
+    border-radius: 3px;
+    margin: 5px;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+
+/*.song-list {*/
+    /*padding: 0;*/
+    /*margin: 0;*/
+    /*list-style: none;*/
+    /*width: 100%;*/
+/*}*/
+
+#queue-container ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+#queue-container li {
+    clear: both;
+    height: 160px;
+    position: relative;
+    width: 100%;
+}
+
+#queue-container img {
+    position: absolute;
+    top: 5px;
+    left: 2px;
+    width: 150px;
+    height: 150px;
+    border: 1px solid rgb(98, 140, 255);
+    border-radius: 3px;
+}
+
+#queue-container .song-title {
+    position: absolute;
+    top: 25px;
+    left: 170px;
+    font-size: 35px;
+}
+
+#queue-container .song-artist {
+    position: absolute;
+    top: 90px;
+    left: 170px;
+    font-size: 35px;
+    color: rgba(0, 0, 0, 0.6);
+}
+
+#queue-container .song-title, #queue-container .song-artist {
+    display: block;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    width: calc(100% - 280px);
+}
+
+#queue-container .duration {
+    position: absolute;
+    right: 15px;
+    top: 60px;
+    font-size: 35px;
+}
+
+#queue-container li:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.2);
 }

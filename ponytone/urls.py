@@ -16,12 +16,13 @@ Including another URLconf
 from django.conf.urls import url, include
 from django.contrib import admin
 
-from karaoke.views import song, index, ntp
+from karaoke.views import song, index, ntp, track_listing
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
     url(r'^song/(?P<song_id>.+?)$', song, name='song'),
     url(r'^ntp$', ntp, name='ntp'),
+    url(r'^tracklist', track_listing, name='tracklist'),
     url(r'^$', index, name='index'),
     url(r'^party/', include('karaoke.urls', namespace='karaoke')),
 ]

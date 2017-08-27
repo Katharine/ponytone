@@ -1,10 +1,13 @@
 import base64
 import hmac
+import json
 import random
 import string
 import time
+import datetime
 
 from django.shortcuts import render, HttpResponse, Http404, HttpResponseRedirect, get_object_or_404
+from django.views.decorators.http import condition
 
 from .models import Party, PartyMember, Playlist, Song
 
@@ -44,3 +47,16 @@ def ntp(request):
     now = round(time.time() * 1000)
     browser_time = int(request.GET['t'])
     return HttpResponse(f"{now - browser_time}:{browser_time}")
+
+
+@condition(last_modified_func=lambda x: datetime.datetime(2017, 8, 26, 23, 59))
+def track_listing(request):
+    results = []
+    for song in Song.objects.all():
+        results.append({
+            'id': song.id,
+            'title': song.title,
+            'artist': song.artist,
+            'length': song.length,
+        })
+    return HttpResponse(json.dumps(results), content_type="application/json")

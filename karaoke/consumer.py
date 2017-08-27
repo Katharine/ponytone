@@ -4,7 +4,7 @@ from channels import Channel, Group
 from channels.security.websockets import allowed_hosts_only
 from channels.sessions import channel_and_http_session
 
-from .models import Party, PartyMember
+from .models import Party, PartyMember, Playlist, Song
 
 
 @allowed_hosts_only
@@ -38,6 +38,11 @@ def party_connected(message, party_id):
     message.reply_channel.send({"text": json.dumps({"action": "hello", "channel": message.reply_channel.name})})
 
 
+def get_playlist(party):
+    print([x.song.id for x in Playlist.objects.filter(party=party).order_by('id')])
+    return [x.song.id for x in Playlist.objects.filter(party=party).order_by('id')]
+
+
 @channel_and_http_session
 def party_message(message):
     content = json.loads(message.content['text'])
@@ -68,6 +73,10 @@ def party_message(message):
             "action": "member_list",
             "members": {x.channel: {'nick': x.nick, 'colour': x.colour} for x in party.members.all()},
         })})
+        message.reply_channel.send({"text": json.dumps({
+            "action": "playlist",
+            "playlist": get_playlist(party)
+        })})
         group.add(message.reply_channel)
         group.send({"text": json.dumps({
             "action": "new_member",
@@ -81,6 +90,26 @@ def party_message(message):
             "action": "relay",
             "origin": message.reply_channel.name,
             "message": content['message'],
+        })})
+    elif action == 'addToQueue':
+        party = Party.objects.get(id=message.http_session['party_id'])
+        song = Song.objects.get(id=content['song'])
+        if Playlist.objects.filter(party=party, song=song).exists():
+            # Silently do nothing if this would be a duplicate.
+            return
+        entry = Playlist(party=party, song=song, order=1)
+        entry.save()
+        Group(f"party-{party.id}").send({"text": json.dumps({
+            "action": "playlist",
+            "playlist": get_playlist(party)
+        })})
+    elif action == 'removeFromQueue':
+        party = Party.objects.get(id=message.http_session['party_id'])
+        song = Song.objects.get(id=content['song'])
+        Playlist.objects.filter(party=party, song=song).delete()
+        Group(f"party-{party.id}").send({"text": json.dumps({
+            "action": "playlist",
+            "playlist": get_playlist(party)
         })})
 
 

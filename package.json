@@ -16,6 +16,7 @@
     "babel-loader": "^7.1.1",
     "babel-preset-env": "^1.6.0",
     "babel-preset-stage-3": "^6.24.1",
+    "clusterize.js": "^0.17.6",
     "css-loader": "^0.28.5",
     "django-channels": "^1.1.5",
     "file-loader": "^0.11.2",

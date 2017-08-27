@@ -1,4 +1,5 @@
 {% load render_bundle from webpack_loader %}
+{% load webpack_static from webpack_loader %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,24 +9,26 @@
         // This doesn't go through Babel, so be kind to older browsers.
         // (none of which support WebRTC, Web Audio, etc. but still.)
         var _pageData = {
-            "partyID": "{{ party_id | escapejs }}",
-            "turnAuth": {
-                "username": "{{ turn_user | escapejs }}",
-                "password": "{{ turn_pass | escapejs }}"
+            partyID: "{{ party_id | escapejs }}",
+            turnAuth: {
+                username: "{{ turn_user | escapejs }}",
+                password: "{{ turn_pass | escapejs }}"
             }
         };
     </script>
 </head>
 <body style="padding: 0; margin: 0;">
-<div id="game-container" style="position: absolute; top: 0; left: 0; background-color: white;">
-</div>
 <div id="not-game-container" style="">
     <div id="party-container">
 
     </div>
-    <div id="track-list-container"></div>
+    <div id="track-list-container" class="clusterize-scroll"></div>
     <button id="ready-button">Ready!</button>
-    <div id="queue-container"></div>
+    <div id="queue-container">
+        <h2>Up Next</h2>
+        <div id="queue-scroll">
+        </div>
+    </div>
 </div>
 <div id="nick-container" class="modal-text">
     <div class="container">
@@ -35,6 +38,8 @@
             <input type="text" id="nick-input" autofocus>
         <button id="nick-confirm-button">Join</button></p>
     </div>
+</div>
+<div id="game-container" style="position: absolute; top: 0; left: 0; background-color: white;">
 </div>
 <table id="loading" style="width: 100%; height: 100%; background-color: white; position: absolute; top: 0; left: 0; display: none;">
     <tr><td style="text-align: center; vertical-align: middle; width: 100%;"><img id="loading-image"></td></tr>

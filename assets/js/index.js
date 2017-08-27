@@ -1,5 +1,5 @@
 "use strict";
-import {partyID, songData} from 'page-data';
+import {partyID} from 'page-data';
 import {NickPrompt} from "./party/nick"
 import {syncTime} from "./util/ntp";
 import {GameController} from "./controller";
@@ -11,7 +11,6 @@ if (!isCompatible()) {
     document.getElementById('unsupported-browser').style.display = 'block';
 } else {
     document.addEventListener('DOMContentLoaded', () => {
-        console.log(songData);
         let readyButton = document.getElementById('ready-button');
         document.getElementById('loading-image').src = require('../img/loading.png');
 
