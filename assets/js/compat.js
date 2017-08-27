@@ -28,6 +28,10 @@ export function isCompatible() {
             console.error("No native Promise support.");
             return false;
         }
+        if (!window.fetch) {
+            console.error("No fetch support.");
+            return false;
+        }
         // This is convoluted because there is a bound in Chrome on how many AudioContexts we can ever create,
         // and closing them doesn't seem to actually work.
         if (_decodeAudioPromise === null) {
