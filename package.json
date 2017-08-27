@@ -16,9 +16,11 @@
     "babel-loader": "^7.1.1",
     "babel-preset-env": "^1.6.0",
     "babel-preset-stage-3": "^6.24.1",
+    "css-loader": "^0.28.5",
     "django-channels": "^1.1.5",
     "file-loader": "^0.11.2",
     "raw-loader": "^0.5.1",
+    "style-loader": "^0.18.2",
     "webpack": "^3.5.5",
     "webpack-bundle-tracker": "^0.2.0",
     "webpack-dev-server": "^2.7.1"
