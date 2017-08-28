@@ -113,10 +113,40 @@ button:active {
 }
 
 #party-container {
-    width: 70%;
-    height:50%;
+    width: calc(70% - 10px);
+    height: calc(50% - 10px);
+    margin-left: 5px;
+    margin-top: 5px;
     float: left;
-    background-color: pink;
+    display: flex;
+    border: 1px solid rgb(98, 140, 255);
+    border-radius: 3px;
+}
+
+#party-container .name {
+    font-size: 30px;
+    font-weight: bold;
+}
+
+#party-container .score {
+    font-size: 40px;
+}
+
+#party-container > div {
+    min-width: 33%;
+    flex: 1;
+    overflow: hidden;
+}
+
+#party-container > div:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.middle {
+    text-align: center;
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .modal-text {

@@ -19,6 +19,7 @@
     "clusterize.js": "^0.17.6",
     "css-loader": "^0.28.5",
     "django-channels": "^1.1.5",
+    "escape-html": "^1.0.3",
     "file-loader": "^0.11.2",
     "raw-loader": "^0.5.1",
     "style-loader": "^0.18.2",

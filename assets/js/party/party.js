@@ -29,6 +29,7 @@ export class Party extends EventEmitter {
         this.network.on('loadTrack', (message, peer) => this._handleLoadTrack(message.track));
         this.network.on('trackLoaded', (message, peer) => this._handleTrackLoaded(peer));
         this.network.on('updatedPlaylist', (songs) => this._handleUpdatedPlaylist(songs));
+        this.network.on('sangNotes', (message, peer) => this._updateScore(peer, message.score));
     }
 
     _makeMember(nick, colour) {
@@ -40,7 +41,12 @@ export class Party extends EventEmitter {
             ready: false,
             me: false,
             loaded: false,
+            score: null,
         }
+    }
+
+    _updateScore(peer, score) {
+        this.party[peer].score = score;
     }
 
     _handleMemberList(members) {
@@ -173,5 +179,9 @@ export class Party extends EventEmitter {
         let peers = Object.keys(this.party);
         peers.sort();
         return (this.network.channelName === peers[0]);
+    }
+
+    get me() {
+        return this.party[this.network.channelName];
     }
 }

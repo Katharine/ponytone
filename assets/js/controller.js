@@ -93,11 +93,13 @@ export class GameController {
 
     _handleTrackFinished() {
         this._transmitBeats();
+        this.party.me.score = this.session.localPlayer.score;
         clearInterval(this.beatTransmitInterval);
         this.lastTransmittedBeat = -1;
         this.session.cleanup();
         this.session = null;
         this.party.trackEnded();
+        this.partyList.update();
     }
 
     _addSong(song) {
