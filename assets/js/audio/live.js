@@ -1,4 +1,5 @@
 import {getNoteFromFFT} from "./pitch";
+import {getAudioContext} from "../util/audio-context";
 
 let EventEmitter = require("events");
 
@@ -6,7 +7,7 @@ export class LiveAudio extends EventEmitter {
     constructor() {
         super();
         this.ready = false;
-        this.context = new (window.AudioContext || window.webkitAudioContext)();
+        this.context = getAudioContext();
         this.analyser = this.context.createAnalyser();
         this.analyser.fftSize = 2048;
         this.fft = new Float32Array(this.analyser.frequencyBinCount);

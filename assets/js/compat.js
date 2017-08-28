@@ -1,10 +1,10 @@
 "use strict";
 
-let _decodeAudioPromise = null;
+import {getAudioContext} from "./util/audio-context";
+
 export function isCompatible() {
     try {
-        let audioContext = window.AudioContext || window.webkitAudioContext;
-        if (!audioContext) {
+        if (!getAudioContext()) {
             console.error("No audio context.");
             return false;
         }
@@ -32,28 +32,18 @@ export function isCompatible() {
             console.error("No fetch support.");
             return false;
         }
-        // This is convoluted because there is a bound in Chrome on how many AudioContexts we can ever create,
-        // and closing them doesn't seem to actually work.
-        if (_decodeAudioPromise === null) {
-            try {
-                let p = new audioContext().decodeAudioData(1);
-                if (!p instanceof Promise) {
-                    console.error("decodeAudioData doesn't return a Promise.");
-                    _decodeAudioPromise = true;
-                    return false;
-                }
-                // shut up the bad parameter error
-                p.catch(() => {
-                });
-            } catch (e) {
-                console.error("decodeAudioData doesn't return a Promise (threw a synchronous exception instead).");
-                _decodeAudioPromise = false;
-                // Browsers that don't support the Promise API throw a TypeError synchronously instead.
+        try {
+            let p = getAudioContext().decodeAudioData(1);
+            if (!p instanceof Promise) {
+                console.error("decodeAudioData doesn't return a Promise.");
                 return false;
             }
-            _decodeAudioPromise = true;
-        } else if (_decodeAudioPromise === false) {
-            console.error("Audio decoding doesn't support the Promise API.");
+            // shut up the bad parameter error
+            p.catch(() => {
+            });
+        } catch (e) {
+            console.error("decodeAudioData doesn't return a Promise (threw a synchronous exception instead).");
+            // Browsers that don't support the Promise API throw a TypeError synchronously instead.
             return false;
         }
 
