@@ -1,0 +1,61 @@
+{% load render_bundle from webpack_loader %}
+{% load webpack_static from webpack_loader %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script type="text/javascript">
+        // This doesn't go through Babel, so be kind to older browsers.
+        // (none of which support WebRTC, Web Audio, etc. but still.)
+        var _pageData = {
+            partyID: "{{ party_id | escapejs }}",
+            turnAuth: {
+                username: "{{ turn_user | escapejs }}",
+                password: "{{ turn_pass | escapejs }}"
+            }
+        };
+    </script>
+</head>
+<body style="padding: 0; margin: 0;">
+<div id="not-game-container" style="">
+    <div id="party-container" style="display: flex; flex-wrap: wrap; align-content: stretch">
+    </div>
+    <div id="track-list-container" class="clusterize-scroll"></div>
+    <button id="ready-button">Ready!</button>
+    <div id="queue-container">
+        <h2>Up Next</h2>
+        <div id="queue-scroll">
+        </div>
+    </div>
+</div>
+<div id="nick-container" class="modal-text">
+    <div class="container">
+        <h1 style="font-family: 'Celestia Redux'">Ponytone</h1>
+        <p>
+            Join the party! Enter a nickname:<br>
+            <input type="text" id="nick-input" autofocus>
+        <button id="nick-confirm-button">Join</button></p>
+    </div>
+</div>
+<div id="game-container" style="position: absolute; top: 0; left: 0; background-color: white;">
+</div>
+<table id="loading" style="width: 100%; height: 100%; background-color: white; position: absolute; top: 0; left: 0; display: none;">
+    <tr><td style="text-align: center; vertical-align: middle; width: 100%;"><img id="loading-image"></td></tr>
+</table>
+<div style="display: none;" id="unsupported-browser" class="modal-text">
+    <div class="container">
+        <h1>Ponytone</h1>
+        <p>Your browser isn't supported!</p>
+        <p>Ponytone uses multiple advanced browser features, and your browser doesn't support them yet. We recommend trying Google Chrome.</p>
+        <p>
+            <a href="https://chrome.google.com/">
+                <img src="https://derpicdn.net/img/2012/6/18/7603/small.png" style="padding-right: 30px;"><br>Get Chrome
+            </a>
+        </p>
+        <p class="smallprint"></p>
+    </div>
+</div>
+{% render_bundle 'party' %}
+</body>
+</html>

@@ -2,11 +2,14 @@
 import {Singing} from "./audio/live";
 
 export class LocalPlayer {
-    constructor(song, part, audio) {
+    constructor(nick, colour, song, part, audio) {
+        this.nick = nick;
+        this.colour = colour;
         this.song = song;
         this.part = part;
         this.singing = null;
         this.audio = audio;
+        this.part = 0;
     }
 
     setSong(song) {
@@ -32,7 +35,6 @@ export class LocalPlayer {
     get score() {
         let part = this.song.parts[this.part];
         let expected = part.map((x) => x.notes).reduce((a, c) => a.concat(c), []);
-        // console.log(expected);
         let actual = this.singing.notes;
         let i = 0;
         let totalBeats = expected.filter((x) => x.type !== 'F').reduce((a, v) => a + v.length, 0);
@@ -54,25 +56,17 @@ export class LocalPlayer {
                 ++i;
             }
         }
-        // console.log(i);
         return Math.round(score);
     }
 }
 
 export class RemotePlayer {
-    constructor(song, part, audio) {
-        console.log(song, part, audio);
-        this.song = song;
-        this.part = part;
-        this.audio = audio;
-    }
-
-    setSong(song) {
-        this.song = song;
-    }
-
-    prepare() {
-
+    constructor(nick, colour, part) {
+        this.nick = nick;
+        this.colour = colour;
+        this.score = 0;
+        this.notes = [];
+        this.part = part || 0;
     }
 
     start() {
@@ -83,11 +77,11 @@ export class RemotePlayer {
 
     }
 
-    notesInRange(start, end) {
-        return [];
+    addNotes(notes) {
+        this.notes.push(...notes);
     }
 
-    get score() {
-        return 0;
+    notesInRange(start, end) {
+        return this.notes.filter((x) => start <= x.time && x.time < end);
     }
 }

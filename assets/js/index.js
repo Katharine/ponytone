@@ -1,18 +1,29 @@
-import {GameSession} from "./game";
-import {LiveAudio} from "./audio/live";
+"use strict";
+import {partyID} from 'page-data';
+import {NickPrompt} from "./party/nick"
+import {syncTime} from "./util/ntp";
+import {GameController} from "./controller";
+import {isCompatible} from "./compat";
 
-LiveAudio.requestPermissions();
+require("../css/party.css");
 
-let song = SONG_ID;
+if (!isCompatible()) {
+    document.getElementById('unsupported-browser').style.display = 'block';
+} else {
+    document.addEventListener('DOMContentLoaded', () => {
+        let readyButton = document.getElementById('ready-button');
+        document.getElementById('loading-image').src = require('../img/loading.png');
 
-let session = new GameSession(document.getElementById('game-container'), 1280, 720, `https://music.ponytone.online/${song}/notes.txt`);
+        let nickPrompt = new NickPrompt();
+        let controller = null;
+        nickPrompt.prompt().then((nick) => {
+            controller = new GameController(nick,
+                document.getElementById('game-container'),
+                document.getElementById('party-container'));
+            readyButton.onclick = () => controller.party.setReady();
+        });
+        setTimeout(syncTime, 1000);
+    });
+}
 
-document.getElementById('loading-image').src = require('../img/loading.png');
 
-session.on('ready', () => {
-    document.getElementById('loading').style.display = 'none';
-    session.start()
-});
-
-document.getElementById('loading').style.display = 'table';
-session.prepare();

@@ -1,5 +1,4 @@
 import {getNoteFromFFT} from "./pitch";
-// import * as EventEmitter from "events";
 
 let EventEmitter = require("events");
 

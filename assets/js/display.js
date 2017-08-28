@@ -24,26 +24,28 @@ export class GameDisplay extends EventEmitter {
         this._ready = false;
         this._scaleInterval = null;
         this._gapTimer = null;
+        this.container.style.overflow = 'hidden';
+        this.container.style.width = `${width}px`;
+        this.container.style.height = `${height}px`;
+    }
+
+    setSize(width, height) {
+        this.width = width;
+        this.height = height;
+        this.container.style.width = `${width}px`;
+        this.container.style.height = `${height}px`;
+        this._scaleCanvas(true);
+        this._updateVideoSize();
+        this.updateLayout();
     }
 
     createGameLayout() {
+        console.log("players", this.players);
         this.canvasElement = document.createElement('canvas');
-        this._scaleCanvas();
         this.canvasElement.style.position = 'absolute';
         this.canvasElement.style.top = 0;
         this.canvasElement.style.left = 0;
-
-        this.videoElement = document.createElement('video');
-        this.videoElement.height = this.height;
-        this.videoElement.width = this.width;
-        this.videoElement.preload = "auto";
-        this.videoElement.poster = this.song.background;
-        this.videoElement.addEventListener("canplaythrough", () => {
-            if (!this._ready) {
-                this._ready = true;
-                this.emit("ready");
-            }
-        });
+        this._scaleCanvas();
 
         this.div = document.createElement('div');
         this.div.style.position = 'relative';
@@ -52,34 +54,101 @@ export class GameDisplay extends EventEmitter {
         this.div.appendChild(this.canvasElement);
         this.container.appendChild(this.div);
 
-        let d = (x, y, w, h) => ({x, y, w, h});
-
-        let lyrics = [d(0, 660, 1280, 60), d(0, 0, 1280, 60)];
-        let layouts = {
-            1: [{notes: d(20, 410, 1240, 250), score: d(1150, 350, 110, 60)}],
-            2: [{notes: d(20, 410, 1240, 250), score: d(1150, 350, 110, 60)},
-                {notes: d(20, 60, 1240, 250), score: d(20, 310, 110, 60)}],
-        };
-
         for (let i = 0; i < this.song.parts.length; ++i) {
-            let l = lyrics[i];
-            let renderer = new LyricRenderer(this.canvasElement, l.x, l.y, l.w, l.h);
+            let renderer = new LyricRenderer(this.canvasElement);
             renderer.setSong(this.song, i);
             this.lyricRenderers.push(renderer);
         }
 
         for (let i = 0; i < this.players.length; ++i) {
-            let l = layouts[this.players.length][i];
-            console.log(i, l);
-            let notes = new NoteRenderer(this.canvasElement, l.notes.x, l.notes.y, l.notes.w, l.notes.h);
+            let notes = new NoteRenderer(this.canvasElement);
             notes.setSong(this.song, this.players[i].part);
             notes.setPlayer(this.players[i]);
             this.noteRenderers.push(notes);
 
-            let score = new ScoreRenderer(this.canvasElement, l.score.x, l.score.y, l.score.w, l.score.h);
+            let score = new ScoreRenderer(this.canvasElement);
             score.setPlayer(this.players[i]);
             this.scoreRenderers.push(score);
         }
+
+        this.updateLayout();
+    }
+
+    updateLayout() {
+        const SCALE_W = 1280;
+        const SCALE_H = 720;
+        let cw = this.canvasElement.clientWidth;
+        let ch = this.canvasElement.clientHeight;
+
+        let d = (x, y, w, h) => ({x: x / SCALE_W * cw, y: y / SCALE_H * ch, w: w / SCALE_W * cw, h: h / SCALE_H * ch});
+
+        const LYRICS = [d(0, 670, 1280, 50), d(0, 0, 1280, 50)];
+        const LAYOUTS = {
+            1: [{notes: d(20, 360, 1240, 250), score: d(0, 300, 1260, 60)}],
+            2: [{notes: d(20, 430, 1240, 240), score: d(0, 360, 1260, 50)},
+                {notes: d(20, 120, 1240, 240), score: d(0, 50, 1260, 50)}],
+            3: [{notes: d(20, 462, 1240, 166), score: d(0, 422, 1260, 40)},
+                {notes: d(20, 256, 1240, 166), score: d(0, 216, 1260, 40)},
+                {notes: d(20, 90, 1240, 166), score: d(0, 50, 1260, 40)}],
+            4: [{notes: d(20, 120, 610, 240), score: d(0, 50, 610, 50)},
+                {notes: d(650, 120, 610, 240), score: d(650, 50, 610, 50)},
+                {notes: d(20, 430, 610, 240), score: d(0, 360, 610, 50)},
+                {notes: d(650, 430, 610, 240), score: d(650, 360, 610, 50)}],
+            5: [{notes: d(20, 462, 610, 166), score: d(0, 422, 610, 40)},
+                {notes: d(650, 462, 610, 166), score: d(650, 422, 610, 40)},
+                {notes: d(20, 256, 610, 166), score: d(0, 216, 610, 40)},
+                {notes: d(650, 256, 610, 166), score: d(650, 216, 610, 40)},
+                {notes: d(20, 90, 610, 166), score: d(0, 50, 610, 40)}],
+            6: [{notes: d(20, 462, 610, 166), score: d(0, 422, 610, 40)},
+                {notes: d(650, 462, 610, 166), score: d(650, 422, 610, 40)},
+                {notes: d(20, 256, 610, 166), score: d(0, 216, 610, 40)},
+                {notes: d(650, 256, 610, 166), score: d(650, 216, 610, 40)},
+                {notes: d(20, 90, 610, 166), score: d(0, 50, 610, 40)},
+                {notes: d(650, 90, 610, 166), score: d(650, 50, 610, 40)}],
+        };
+
+        this.canvasElement.getContext('2d').clearRect(0, 0, cw, ch);
+
+        for (let [i, renderer] of this.lyricRenderers.entries()) {
+            let {x, y, w, h} = LYRICS[i];
+            renderer.setRect(x, y, w, h);
+        }
+
+        let layout = LAYOUTS[this.players.length];
+        for (let [i, renderer] of this.noteRenderers.entries()) {
+            let {x, y, w, h} = layout[i].notes;
+            renderer.setRect(x, y, w, h);
+        }
+
+        for (let [i, renderer] of this.scoreRenderers.entries()) {
+            let {x, y, w, h} = layout[i].score;
+            renderer.setRect(x, y, w, h);
+        }
+
+        this._renderFrame(true);
+    }
+
+    prepareVideo() {
+        this.videoElement = document.createElement('video');
+        this.videoElement.style.position = 'absolute';
+        this.videoElement.style.top = 0;
+        this.videoElement.style.left = 0;
+        this._updateVideoSize();
+        this.videoElement.preload = "auto";
+        this.videoElement.poster = this.song.background;
+        this.videoElement.addEventListener("canplaythrough", () => {
+            if (!this._ready) {
+                this._ready = true;
+                this.emit("ready");
+            }
+        });
+        this.videoElement.addEventListener('error', () => {
+            this.videoElement.removeAttribute('src');
+            if (!this._ready) {
+                this._ready = true;
+                this.emit("ready");
+            }
+        });
 
         if (this.song.video) {
             this.videoElement.src = this.song.video;
@@ -89,6 +158,18 @@ export class GameDisplay extends EventEmitter {
                 this.emit("ready");
             }, 0);
         }
+    }
+
+    _updateVideoSize() {
+        if (this.height > (this.width / 16*9)) {
+            this.videoElement.height = this.height;
+            this.videoElement.width = this.height / 9 * 16;
+        } else {
+            this.videoElement.height = this.width / 16 * 9;
+            this.videoElement.width = this.width;
+        }
+        this.videoElement.style.top = `${(this.height - this.videoElement.height) / 2}px`;
+        this.videoElement.style.left = `${(this.width - this.videoElement.width) / 2}px`;
     }
 
     get ready() {
@@ -140,9 +221,12 @@ export class GameDisplay extends EventEmitter {
         clearTimeout(this._gapTimer);
         this.videoElement.pause();
         this.running = false;
+        this.container.style.overflow = 'unset';
+        this.container.style.width = `unset`;
+        this.container.style.height = `unset`;
     }
 
-    _renderFrame() {
+    _renderFrame(manual) {
         if (!this.running) {
             return;
         }
@@ -172,13 +256,15 @@ export class GameDisplay extends EventEmitter {
         for (let scoreRenderer of this.scoreRenderers) {
             scoreRenderer.render();
         }
-        requestAnimationFrame(() => this._renderFrame());
+        if (!manual) {
+            requestAnimationFrame(() => this._renderFrame());
+        }
     }
 
-    _scaleCanvas() {
+    _scaleCanvas(force) {
         // assume the device pixel ratio is 1 if the browser doesn't specify it
         const devicePixelRatio = window.devicePixelRatio || 1;
-        if (this._currentCanvasScale === devicePixelRatio) {
+        if (!force && this._currentCanvasScale === devicePixelRatio) {
             return;
         }
         this._currentCanvasScale = devicePixelRatio;
