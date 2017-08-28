@@ -2,7 +2,9 @@
 
 import {Song} from "./ultrastar/parser";
 import {GameDisplay} from "./display";
-import {LocalPlayer, RemotePlayer} from "./player";
+import {LocalPlayer} from "./player";
+import {getAudioContext} from "./util/audio-context";
+
 let EventEmitter = require("events");
 
 export class GameSession extends EventEmitter {
@@ -19,7 +21,7 @@ export class GameSession extends EventEmitter {
         this.song = null;
         this._startTime = null;
         this._ready = false;
-        this._ac = new (window.AudioContext || window.webkitAudioContext)();
+        this._ac = getAudioContext();
     }
 
     setSize(width, height) {
