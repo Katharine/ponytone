@@ -61,6 +61,9 @@ export class GameController {
 
     _receivedNotes(peer, score, notes) {
         let player = this.remotePlayers[peer];
+        if (!player) {
+            return;
+        }
         player.score = score;
         player.addNotes(notes);
     }

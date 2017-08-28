@@ -19,6 +19,7 @@ export class Party extends EventEmitter {
         this.nick = nick;
         this.party = {};
         this.queue = [];
+        this.playing = false;
         this.network = new NetworkSession(this.nick);
         this.network.on('gotMemberList', (members) => this._handleMemberList(members));
         this.network.on('newMember', (member) => this._handleNewMember(member));
@@ -85,6 +86,10 @@ export class Party extends EventEmitter {
     _handleReady(peer) {
         this.party[peer].ready = true;
         this.emit('partyUpdated');
+        if (this.playing) {
+            console.warn("Got ready message but already playing.");
+            return;
+        }
         let pending = Object.values(this.party).reduce((a, v) => a + (v.ready ? 0 : 1), 0);
         if (pending === 0) {
             if (this.isMaster) {
@@ -125,6 +130,11 @@ export class Party extends EventEmitter {
     }
 
     _handleLoadTrack(track) {
+        if (this.playing) {
+            console.warn("Got load track command when already playing.");
+            return;
+        }
+        this.playing = true;
         for (let member of Object.values(this.party)) {
             member.loaded = false;
         }
@@ -150,7 +160,10 @@ export class Party extends EventEmitter {
         let delay = time - now;
         setTimeout(() => this.emit("startGame"), delay);
         console.log(`Game start in ${delay}ms.`);
-
+        for (let member of Object.values(this.party)) {
+            member.loaded = false;
+            member.ready = false;
+        }
     }
 
     _handleUpdatedPlaylist(songs) {
@@ -164,10 +177,7 @@ export class Party extends EventEmitter {
     }
 
     trackEnded() {
-        for (let member of Object.values(this.party)) {
-            member.loaded = false;
-            member.ready = false;
-        }
+        this.playing = false;
         this.emit('partyUpdated');
     }
 
