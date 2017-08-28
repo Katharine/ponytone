@@ -179,24 +179,24 @@ export class GameDisplay extends EventEmitter {
     title() {
         let titleRenderer = new TitleRenderer(this.canvasElement, this.song);
         this.videoElement.currentTime = 0;
-        let p = new Promise((resolve, reject) => {
-            let opacity = 1;
+        return new Promise((resolve) => {
             titleRenderer.render();
             setTimeout(() => {
+                let start = Date.now();
                 let fade = () => {
-                    opacity -= 0.05;
-                    if (opacity <= 0) {
-                        this.canvasElement.getContext('2d').clearRect(0, 0, this.canvasElement.clientWidth, this.canvasElement.clientHeight);
-                        resolve();
-                    } else {
+                    let opacity = 1 - ((Date.now() - start) / 33) * 0.05;
+                    if (opacity > 0) {
                         titleRenderer.render(opacity);
                         requestAnimationFrame(fade);
                     }
                 };
+                setTimeout(() =>{
+                    this.canvasElement.getContext('2d').clearRect(0, 0, this.canvasElement.clientWidth, this.canvasElement.clientHeight);
+                    resolve();
+                }, 667);
                 requestAnimationFrame(fade);
             }, 3000);
         });
-        return p;
     }
 
     start() {
