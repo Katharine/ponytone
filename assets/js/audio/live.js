@@ -11,6 +11,10 @@ export class LiveAudio extends EventEmitter {
         this.analyser = this.context.createAnalyser();
         this.analyser.fftSize = 2048;
         this.fft = new Float32Array(this.analyser.frequencyBinCount);
+        this.biquad = this.context.createBiquadFilter();
+        this.biquad.type = "lowpass";
+        this.biquad.frequency.value = 2000;
+        this.biquad.Q.value = 0.5;
         this.source = null;
         navigator.mediaDevices.getUserMedia({audio: true, echoCancellation: false})
             .then((stream) => this._handleMedia(stream))
@@ -25,7 +29,8 @@ export class LiveAudio extends EventEmitter {
     _handleMedia(stream) {
         this.stream = stream;
         this.source = this.context.createMediaStreamSource(this.stream);
-        this.source.connect(this.analyser);
+        this.source.connect(this.biquad);
+        this.biquad.connect(this.analyser);
         this.ready = true;
     }
 
@@ -75,7 +80,7 @@ export class Singing {
     }
 
     _addNote() {
-        let beat = this.song.msToBeats((this.track.currentTime*1000)|0) - 2;
+        let beat = this.song.msToBeats((this.track.currentTime*1000)|0) - 3;
         if (beat < 0 || beat <= this.currentBeat) {
             return;
         }
