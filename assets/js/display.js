@@ -24,6 +24,7 @@ export class GameDisplay extends EventEmitter {
         this._ready = false;
         this._scaleInterval = null;
         this._gapTimer = null;
+        this._canKillVideo = false; // Chrome throws a fit if we unload a video it's trying to start playing.
         this.container.style.overflow = 'hidden';
         this.container.style.width = `${width}px`;
         this.container.style.height = `${height}px`;
@@ -151,7 +152,15 @@ export class GameDisplay extends EventEmitter {
         });
 
         if (this.song.video) {
-            this.videoElement.src = this.song.video;
+            let start = this.getVideoStartTime();
+            // if (start > 0) {
+            //     this.videoElement.addEventListener('loadedmetadata', () => {
+            //         console.log('setting start time');
+            //         this.videoElement.currentTime = start;
+            //     });
+            // }
+            this.videoElement.src = `${this.song.video}#t=${start}`;
+            console.log(this.videoElement.src);
         } else {
             setTimeout(() => {
                 this._ready = true;
@@ -199,17 +208,26 @@ export class GameDisplay extends EventEmitter {
         });
     }
 
+    getVideoStartTime() {
+        return this.song.videogap + (this.song.start || 0);
+    }
+
     start() {
         this.running = true;
         this.videoElement.currentTime = 0;
+        let start = this.getVideoStartTime();
         if (this.videoElement.src) {
-            if (this.song.videogap >= 0) {
-                this.videoElement.currentTime = this.song.videogap;
-                this.videoElement.play();
+            if (start >= 0) {
+                console.log("Video start time: ",start, this.videoElement.currentTime);
+                // this.videoElement.currentTime = start;
+                this._canKillVideo = false;
+                this.videoElement.play()
+                    .then(() => this._canKillVideo = true)
+                    .catch(() => this._canKillVideo = true);
             } else {
-                console.log(`Delaying video playback by ${-this.song.videogap} seconds...`);
+                console.log(`Delaying video playback by ${-start} seconds...`);
                 this.videoElement.currentTime = 0;
-                this._gapTimer = setTimeout(() => {console.log("video start."); this.videoElement.play()}, -this.song.videogap * 1000);
+                this._gapTimer = setTimeout(() => {console.log("video start."); this.videoElement.play()}, -start * 1000);
             }
         }
         this._scaleInterval = setInterval(() => this._scaleCanvas(), 1000);
@@ -230,20 +248,17 @@ export class GameDisplay extends EventEmitter {
         if (!this.running) {
             return;
         }
-        if (this.videoElement.src) {
+        if (this._canKillVideo && this.videoElement.src) {
             if (this.audio.currentTime >= Math.max(0, -this.song.videogap)) {
                 if (Math.abs(this.videoElement.currentTime - this.audio.currentTime - this.song.videogap) > 0.2) {
                     console.log('A/V desync; disabling.', this.videoElement.currentTime, this.audio.currentTime, this.song.videogap);
                     this.videoElement.removeAttribute('src');
                     this.videoElement.load();
+                    // If this line is omitted, Chrome just shows white. I don't know why.
+                    this.videoElement.poster = this.videoElement.poster;
                 }
             }
         }
-        // if (this.videoElement.src && Math.abs(this.videoElement.currentTime - this.audio.currentTime) > 0.2) {
-        //     console.log('A/V desync; disabling.');
-        //     this.videoElement.removeAttribute('src');
-        //     this.videoElement.load();
-        // }
 
         let time = (this.audio.currentTime * 1000) | 0;
 

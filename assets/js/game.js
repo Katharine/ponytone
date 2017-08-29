@@ -44,7 +44,11 @@ export class GameSession extends EventEmitter {
         this.display.title().then(() => {
             if (this.ready) {
                 this._startTime = this._ac.currentTime;
-                this.audio.start();
+                let duration = 0;
+                if (this.song.end) {
+                    duration = (this.song.end / 1000) - (this.song.start || 0);
+                }
+                this.audio.start(0, this.song.start || 0, duration);
                 this._startedPlaying();
             } else {
                 throw new Error("Not ready yet.");
@@ -126,7 +130,7 @@ export class GameSession extends EventEmitter {
         if (this._startTime === null) {
             return 0;
         }
-        return this._ac.currentTime - this._startTime;
+        return this._ac.currentTime - this._startTime + (this.song.start || 0);
     }
 
     get _baseURL() {

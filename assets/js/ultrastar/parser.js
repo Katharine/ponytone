@@ -7,6 +7,8 @@ export class Song {
         this.parts = [];
         this.bpm = null;
         this.gap = null;
+        this.start = null;
+        this.end = null;
         this._mp3 = null;
         this._background = null;
         this._video = null;
@@ -137,7 +139,7 @@ export class Song {
                 this._background = value;
                 break;
             case "BPM":
-                this.bpm = parseFloat(value);
+                this.bpm = parseFloat(value.replace(',', '.'));
                 break;
             case "GAP":
                 this.gap = parseInt(value, 10);
@@ -146,7 +148,13 @@ export class Song {
                 this._video = value;
                 break;
             case "VIDEOGAP":
-                this.videogap = parseFloat(value);
+                this.videogap = parseFloat(value.replace(',', '.'));
+                break;
+            case "START":
+                this.start = parseFloat(value.replace(',', '.'));
+                break;
+            case "END":
+                this.end = parseInt(value, 10);
                 break;
             default:
                 console.warn(`Got unknown command ${command}; ignoring.`)
