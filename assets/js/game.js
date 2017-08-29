@@ -44,7 +44,7 @@ export class GameSession extends EventEmitter {
         this.display.title().then(() => {
             if (this.ready) {
                 this._startTime = this._ac.currentTime;
-                let duration = 0;
+                let duration = undefined;
                 if (this.song.end) {
                     duration = (this.song.end / 1000) - (this.song.start || 0);
                 }
