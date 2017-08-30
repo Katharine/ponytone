@@ -126,7 +126,7 @@ export class NoteRenderer {
 
         ctx.save();
         let beatWidth = this.rect.w / (endBeat - startBeat);
-        let lowest = line.notes.reduce((min, note) => note.pitch < min ? note.pitch : min, Infinity);
+        let lowest = line.notes.reduce((min, note) => note.type !== 'F' && note.pitch < min ? note.pitch : min, Infinity);
         ctx.lineWidth = this.rect.h / 12.5;
         ctx.lineCap = 'round';
         ctx.strokeStyle = this.player.colour;
