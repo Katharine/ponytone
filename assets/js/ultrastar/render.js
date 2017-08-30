@@ -102,7 +102,7 @@ export class NoteRenderer {
         this.player = player;
         let colour = new Colour(this.player.colour);
         this.outlineColour = colour.darken(0.1).hex();
-        this.innerColour = colour.lighten(0.3).hex();
+        this.innerColour = colour.lighten(0.3).desaturate(0.5).hex();
     }
 
     render(time) {
@@ -114,7 +114,7 @@ export class NoteRenderer {
         ctx.lineCap = 'butt';
         for (let i = 0; i < 10; ++i) {
             ctx.beginPath();
-            let y = this.rect.y + (this.rect.h - (i * (this.rect.h / 10))) - this.rect.h / 20;
+            let y = this.rect.y + (this.rect.h - ((i+0.5) * (this.rect.h / 11))) - this.rect.h / 22;
             ctx.moveTo(this.rect.x, y);
             ctx.lineTo(this.rect.x + this.rect.w, y);
             ctx.stroke();
@@ -130,11 +130,12 @@ export class NoteRenderer {
         if (startBeat === endBeat) {
             return;
         }
+        let w = this.rect.w - 2;
 
         ctx.save();
-        let beatWidth = this.rect.w / (endBeat - startBeat);
+        let beatWidth = w / (endBeat - startBeat);
         let lowest = line.notes.reduce((min, note) => note.type !== 'F' && note.pitch < min ? note.pitch : min, Infinity);
-        ctx.lineWidth = this.rect.h / 12.5;
+        ctx.lineWidth = this.rect.h / 7;
         ctx.lineCap = 'round';
         for (let [shrink, colour] of [[1, this.outlineColour], [0.7, this.innerColour]]) {
             ctx.save();
@@ -144,12 +145,12 @@ export class NoteRenderer {
                 if (note.type === 'F') {
                     continue;
                 }
-                let line = (note.pitch - lowest + 4) % 20;
-                let y = this.rect.y + (this.rect.h - (line * (this.rect.h / 20))) - this.rect.h / 20;
+                let line = (note.pitch - lowest + 4) % 18;
+                let y = this.rect.y + (this.rect.h - ((line + 1) * (this.rect.h / 22))) - this.rect.h / 22;
 
                 ctx.beginPath();
-                ctx.moveTo(this.rect.x + (ctx.lineWidth / 2) / shrink + beatWidth * (note.beat - startBeat), y);
-                ctx.lineTo(this.rect.x - (ctx.lineWidth / 2) / shrink + beatWidth * (note.beat - startBeat + note.length), y);
+                ctx.moveTo(this.rect.x + 1 + (ctx.lineWidth / 2) / shrink + beatWidth * (note.beat - startBeat), y);
+                ctx.lineTo(this.rect.x + 1 - (ctx.lineWidth / 2) / shrink + beatWidth * (note.beat - startBeat + note.length), y);
                 ctx.stroke();
             }
             ctx.restore();
@@ -164,19 +165,19 @@ export class NoteRenderer {
             for (let note of this.player.notesInRange(startBeat, endBeat)) {
                 let beat = note.time;
                 let actual = line.getNoteNearBeat(beat);
-                let renderLine = ((note.note % 12) - (lowest % 12) + 4) % 20;
-                let altLine = ((note.note % 12) - (lowest % 12) + 4 + 12) % 20;
-                let actualLine = (actual.pitch - lowest + 4) % 20;
-                while (renderLine < 0) renderLine += 20;
-                while (altLine < 0) altLine += 20;
+                let renderLine = ((note.note % 12) - (lowest % 12) + 4) % 18;
+                let altLine = ((note.note % 12) - (lowest % 12) + 4 + 12) % 18;
+                let actualLine = (actual.pitch - lowest + 4) % 18;
+                while (renderLine < 0) renderLine += 18;
+                while (altLine < 0) altLine += 18;
                 if (Math.abs(altLine - actualLine) < Math.abs(renderLine - actualLine)) {
                     renderLine = altLine;
                 }
-                let y = this.rect.y + (this.rect.h - (renderLine * (this.rect.h / 20))) - this.rect.h / 20;
+                let y = this.rect.y + (this.rect.h - ((renderLine + 1) * (this.rect.h / 22))) - this.rect.h / 22;
 
                 ctx.beginPath();
-                ctx.moveTo(this.rect.x + beatWidth * (beat - startBeat), y);
-                ctx.lineTo(this.rect.x + beatWidth * (beat - startBeat + 1), y);
+                ctx.moveTo(this.rect.x + 1 + beatWidth * (beat - startBeat), y);
+                ctx.lineTo(this.rect.x + 1 + beatWidth * (beat - startBeat + 1), y);
                 ctx.stroke();
             }
             ctx.restore();
