@@ -152,8 +152,8 @@ export class NoteRenderer {
             for (let note of this.player.notesInRange(startBeat, endBeat)) {
                 let beat = note.time;
                 let actual = line.getNoteNearBeat(beat);
-                let renderLine = (note.note - lowest + 4) % 20;
-                let altLine = (note.note - lowest + 4 + 12) % 20;
+                let renderLine = ((note.note % 12) - (lowest % 12) + 4) % 20;
+                let altLine = ((note.note % 12) - (lowest % 12) + 4 + 12) % 20;
                 let actualLine = (actual.pitch - lowest + 4) % 20;
                 while (renderLine < 0) renderLine += 20;
                 while (altLine < 0) altLine += 20;
