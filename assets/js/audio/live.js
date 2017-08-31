@@ -16,7 +16,17 @@ export class LiveAudio extends EventEmitter {
         this.biquad.frequency.value = 2000;
         this.biquad.Q.value = 0.5;
         this.source = null;
-        navigator.mediaDevices.getUserMedia({audio: true, echoCancellation: false})
+        navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false,
+                googAutoGainControl: false,
+                mozAutoGainControl: false,
+                googNoiseSuppression: false,
+                mozNoiseSuppression: false,
+            }
+        })
             .then((stream) => this._handleMedia(stream))
             .catch((err) => this._mediaFailed(err));
     }
