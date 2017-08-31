@@ -87,6 +87,8 @@ export class NoteRenderer {
         this.player = null;
         this.outlineColour = null;
         this.innerColour = null;
+        this.singColour = null;
+        this._lineMetrics = {};
     }
 
     setSong(song, part) {
@@ -103,6 +105,7 @@ export class NoteRenderer {
         let colour = new Colour(this.player.colour);
         this.outlineColour = colour.darken(0.1).fade(0.1).string();
         this.innerColour = colour.lighten(0.3).desaturate(0.5).hex();
+        this.singColour = colour.lighten(0.4).hex();
     }
 
     render(time) {
@@ -127,61 +130,95 @@ export class NoteRenderer {
         }
         let startBeat = line.notes[0].beat;
         let endBeat = line.notes[line.notes.length - 1].beat + line.notes[line.notes.length - 1].length;
-        if (startBeat === endBeat) {
-            return;
-        }
 
-        ctx.save();
-        ctx.lineWidth = this.rect.h / 7;
-        let w = this.rect.w - ctx.lineWidth;
-        let beatWidth = w / (endBeat - startBeat);
-        let lowest = line.notes.reduce((min, note) => note.type !== 'F' && note.pitch < min ? note.pitch : min, Infinity);
-        ctx.lineCap = 'round';
-        for (let [shrink, colour] of [[1, this.outlineColour], [0.7, this.innerColour]]) {
-            ctx.save();
-            ctx.lineWidth *= shrink;
-            ctx.strokeStyle = colour;
-            for (let note of line.notes) {
-                if (note.type === 'F') {
-                    continue;
-                }
-                let line = (note.pitch - lowest + 4) % 18;
-                let y = this.rect.y + (this.rect.h - ((line + 1) * (this.rect.h / 22))) - this.rect.h / 22;
-
-                ctx.beginPath();
-                ctx.moveTo(this.rect.x + ctx.lineWidth/2/shrink + (ctx.lineWidth / 2) / shrink + beatWidth * (note.beat - startBeat), y);
-                ctx.lineTo(this.rect.x + ctx.lineWidth/2/shrink - (ctx.lineWidth / 2) / shrink + beatWidth * (note.beat - startBeat + note.length), y);
-                ctx.stroke();
+        let {lowestNote} = this.metricsForLine(line);
+        for (let note of line.notes) {
+            if (note.type === 'F') {
+                continue;
             }
-            ctx.restore();
+            let renderLine = (note.pitch - lowestNote + 4) % 18;
+
+            this.renderLine(line, renderLine, note.beat, note.beat + note.length, this.rect.h / 7, this.outlineColour, 1);
+            this.renderLine(line, renderLine, note.beat, note.beat + note.length, this.rect.h / 7, this.innerColour, 0.7)
         }
-        this.context.restore();
 
         if (this.player) {
-            ctx.save();
-            ctx.lineWidth = 10;
-            ctx.lineCap = 'butt';
-            ctx.strokeStyle = 'black';
+            let lastLine = null;
+            let lastStart = null;
+            let lastEnd = null;
+            let lastWasMatching = null;
+            let lastActualStartBeat = null;
             for (let note of this.player.notesInRange(startBeat, endBeat)) {
                 let beat = note.time;
                 let actual = line.getNoteNearBeat(beat);
-                let renderLine = ((note.note % 12) - (lowest % 12) + 4) % 18;
-                let altLine = ((note.note % 12) - (lowest % 12) + 4 + 12) % 18;
-                let actualLine = (actual.pitch - lowest + 4) % 18;
+                let renderLine = ((note.note % 12) - (lowestNote % 12) + 4) % 18;
+                let altLine = ((note.note % 12) - (lowestNote % 12) + 4 + 12) % 18;
+                let actualLine = (actual.pitch - lowestNote + 4) % 18;
                 while (renderLine < 0) renderLine += 18;
                 while (altLine < 0) altLine += 18;
-                if (Math.abs(altLine - actualLine) < Math.abs(renderLine - actualLine)) {
-                    renderLine = altLine;
+                let pitchDiff = Math.abs((actual.pitch % 12) - (note.note % 12));
+                let matchingNote = (pitchDiff <= 1 || pitchDiff >= 11) && beat >= actual.beat && beat <= actual.beat + actual.length;
+                if (matchingNote) {
+                    renderLine = actualLine;
+                } else {
+                    if (Math.abs(altLine - actualLine) < Math.abs(renderLine - actualLine)) {
+                        renderLine = altLine;
+                    }
                 }
-                let y = this.rect.y + (this.rect.h - ((renderLine + 1) * (this.rect.h / 22))) - this.rect.h / 22;
+                if (renderLine === lastLine && lastWasMatching === matchingNote && beat === lastEnd + 1 && lastActualStartBeat === actual.beat) {
+                    lastEnd = beat;
+                    continue;
+                }
+                // now we have to render the *previous* note
+                this.renderLine(line, lastLine, lastStart, lastEnd, this.rect.h / 7, this.singColour, lastWasMatching ? 0.7 : 0.4);
 
-                ctx.beginPath();
-                ctx.moveTo(this.rect.x + ctx.lineWidth/2 + beatWidth * (beat - startBeat), y);
-                ctx.lineTo(this.rect.x + ctx.lineWidth/2 + beatWidth * (beat - startBeat + 1), y);
-                ctx.stroke();
+                // Update what 'previous' means.
+                lastStart = beat;
+                lastEnd = beat;
+                lastLine = renderLine;
+                lastWasMatching = matchingNote;
+                lastActualStartBeat = actual.beat;
             }
-            ctx.restore();
+
+            if (lastLine !== null) {
+                this.renderLine(line, lastLine, lastStart, lastEnd, this.rect.h / 7, this.singColour, lastWasMatching ? 0.7 : 0.4);
+            }
         }
+    }
+
+    metricsForLine(line) {
+        if (!line.notes.length) {
+            return {};
+        }
+        if (!this._lineMetrics[line.notes[0].beat]) {
+            let lowestNote = line.notes.reduce((min, note) => note.type !== 'F' && note.pitch < min ? note.pitch : min, Infinity);
+            let lineStartBeat = line.notes[0].beat;
+            let lineEndBeat = line.notes[line.notes.length - 1].beat + line.notes[line.notes.length - 1].length;
+            this._lineMetrics[lineStartBeat] = {lowestNote, lineStartBeat, lineEndBeat};
+        }
+        return this._lineMetrics[line.notes[0].beat];
+    }
+
+    renderLine(songLine, renderLine, startBeat, endBeat, thickness, colour, scale) {
+        let {lineStartBeat, lineEndBeat} = this.metricsForLine(songLine);
+        let ctx = this.context;
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineWidth = thickness * scale;
+        ctx.strokeStyle = colour;
+        let w = this.rect.w * 0.95;
+        let beatWidth = w / (lineEndBeat - lineStartBeat);
+        let x = this.rect.h/7;
+        let y = this.rect.y + (this.rect.h - ((renderLine + 1) * (this.rect.h / 22))) - this.rect.h / 22;
+        let cap = thickness / 2 * scale;
+
+        ctx.beginPath();
+        let x1 = this.rect.x + x + cap / scale + beatWidth * (startBeat - lineStartBeat);
+        let x2 = this.rect.x + x - cap / scale + beatWidth * (endBeat - lineStartBeat);
+        ctx.moveTo(x1, y);
+        ctx.lineTo(Math.max(x1, x2), y);
+        ctx.stroke();
+        ctx.restore();
     }
 }
 
