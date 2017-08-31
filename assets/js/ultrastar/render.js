@@ -106,9 +106,13 @@ export class NoteRenderer {
         this.outlineColour = colour.darken(0.1).fade(0.1).string();
         this.innerColour = colour.lighten(0.3).desaturate(0.5).hex();
         this.singColour = colour.lighten(0.4).hex();
+        this.singOutlineColour = Colour(this.singColour).darken(0.6).hex();
     }
 
     render(time) {
+        const EXPECTED_NOTE_INNER_RATIO = 0.7;
+        const BAD_NOTE_RATIO = 0.4;
+        const SUNG_NOTE_INNER_OFFSET = 0.1;
         let ctx = this.context;
         ctx.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
         ctx.save();
@@ -138,8 +142,8 @@ export class NoteRenderer {
             }
             let renderLine = (note.pitch - lowestNote + 4) % 18;
 
-            this.renderLine(line, renderLine, note.beat, note.beat + note.length, this.rect.h / 7, this.outlineColour, 1);
-            this.renderLine(line, renderLine, note.beat, note.beat + note.length, this.rect.h / 7, this.innerColour, 0.7)
+            this.renderLine(line, renderLine, note.beat, note.beat + note.length, this.outlineColour, 1);
+            this.renderLine(line, renderLine, note.beat, note.beat + note.length, this.innerColour, EXPECTED_NOTE_INNER_RATIO)
         }
 
         if (this.player) {
@@ -170,7 +174,9 @@ export class NoteRenderer {
                     continue;
                 }
                 // now we have to render the *previous* note
-                this.renderLine(line, lastLine, lastStart, lastEnd, this.rect.h / 7, this.singColour, lastWasMatching ? 0.7 : 0.4);
+                let ratio = lastWasMatching ? EXPECTED_NOTE_INNER_RATIO : BAD_NOTE_RATIO;
+                this.renderLine(line, lastLine, lastStart, lastEnd, this.singOutlineColour, ratio);
+                this.renderLine(line, lastLine, lastStart, lastEnd, this.singColour, ratio - SUNG_NOTE_INNER_OFFSET);
 
                 // Update what 'previous' means.
                 lastStart = beat;
@@ -181,7 +187,9 @@ export class NoteRenderer {
             }
 
             if (lastLine !== null) {
-                this.renderLine(line, lastLine, lastStart, lastEnd, this.rect.h / 7, this.singColour, lastWasMatching ? 0.7 : 0.4);
+                let ratio = lastWasMatching ? EXPECTED_NOTE_INNER_RATIO : BAD_NOTE_RATIO;
+                this.renderLine(line, lastLine, lastStart, lastEnd, this.singOutlineColour, ratio);
+                this.renderLine(line, lastLine, lastStart, lastEnd, this.singColour, ratio - SUNG_NOTE_INNER_OFFSET);
             }
         }
     }
@@ -199,7 +207,8 @@ export class NoteRenderer {
         return this._lineMetrics[line.notes[0].beat];
     }
 
-    renderLine(songLine, renderLine, startBeat, endBeat, thickness, colour, scale) {
+    renderLine(songLine, renderLine, startBeat, endBeat, colour, scale) {
+        const thickness = this.rect.h / 7;
         let {lineStartBeat, lineEndBeat} = this.metricsForLine(songLine);
         let ctx = this.context;
         ctx.save();
