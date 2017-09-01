@@ -44,17 +44,19 @@ export class PeerConnection extends EventEmitter {
         this.send({action: "pong", time: message.time})
     }
 
-    _receiveConnection(sdp) {
-        this._createConnection();
-        let desc = new RTCSessionDescription(sdp);
-        this.connection.setRemoteDescription(desc)
-            .then(() => this.connection.createAnswer())
-            .then((answer) => this.connection.setLocalDescription(answer))
-            .then(() => {
-                this.networkSession.relayTo(this.peer, {action: 'rtc-response', sdp: this.connection.localDescription});
-                this._processPendingCandidates();
-            })
-            .catch((e) => this._connectionEstablishmentError(e));
+    async _receiveConnection(sdp) {
+        try {
+            this._createConnection();
+            let desc = new RTCSessionDescription(sdp);
+            await this.connection.setRemoteDescription(desc);
+            let answer = await this.connection.createAnswer();
+            await this.connection.setLocalDescription(answer);
+
+            this.networkSession.relayTo(this.peer, {action: 'rtc-response', sdp: this.connection.localDescription});
+            this._processPendingCandidates();
+        } catch (e) {
+            this._connectionEstablishmentError(e);
+        }
     }
 
     _handleRelayMessage(origin, message) {
@@ -121,17 +123,19 @@ export class PeerConnection extends EventEmitter {
         }
     }
 
-    _performNegotiation() {
-        console.log('Initiating negotiation.');
-        this.connection.createOffer()
-            .then((offer) => this.connection.setLocalDescription(offer))
-            .then(() => {
-                this.networkSession.relayTo(this.peer, {
-                    action: "rtc-start",
-                    sdp: this.connection.localDescription,
-                });
-            })
-            .catch((e) => this._connectionEstablishmentError(e));
+    async _performNegotiation() {
+        try {
+            console.log('Initiating negotiation.');
+            let offer = await this.connection.createOffer();
+            await this.connection.setLocalDescription(offer);
+
+            this.networkSession.relayTo(this.peer, {
+                action: "rtc-start",
+                sdp: this.connection.localDescription,
+            });
+        } catch (e) {
+            this._connectionEstablishmentError(e);
+        }
     }
 
     _handleICECandidate(e) {
@@ -185,11 +189,14 @@ export class PeerConnection extends EventEmitter {
         }
     }
 
-    _handleInboundDescription(sdp) {
-        let desc = new RTCSessionDescription(sdp);
-        this.connection.setRemoteDescription(desc)
-            .then(() => this._processPendingCandidates())
-            .catch((e) => this._connectionEstablishmentError(e));
+    async _handleInboundDescription(sdp) {
+        try {
+            let desc = new RTCSessionDescription(sdp);
+            await this.connection.setRemoteDescription(desc);
+            this._processPendingCandidates();
+        } catch (e) {
+            this._connectionEstablishmentError(e);
+        }
     }
 
     _connectionEstablishmentError(e) {

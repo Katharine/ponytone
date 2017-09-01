@@ -212,7 +212,7 @@ export class GameDisplay extends EventEmitter {
         return this.song.videogap + (this.song.start || 0);
     }
 
-    start() {
+    async start() {
         this.running = true;
         this.videoElement.currentTime = 0;
         let start = this.getVideoStartTime();
@@ -221,9 +221,8 @@ export class GameDisplay extends EventEmitter {
                 console.log("Video start time: ",start, this.videoElement.currentTime);
                 // this.videoElement.currentTime = start;
                 this._canKillVideo = false;
-                this.videoElement.play()
-                    .then(() => this._canKillVideo = true)
-                    .catch(() => this._canKillVideo = true);
+                await this.videoElement.play();
+                this._canKillVideo = true;
             } else {
                 console.log(`Delaying video playback by ${-start} seconds...`);
                 this.videoElement.currentTime = 0;

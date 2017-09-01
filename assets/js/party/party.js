@@ -74,12 +74,10 @@ export class Party extends EventEmitter {
         this.emit('partyUpdated');
     }
 
-    _handleDataReady(peer) {
+    async _handleDataReady(peer) {
         this.party[peer].data = true;
-        this.network.rtcConnection(peer).testLatency(5000).then((ping) => {
-            this.party[peer].ping = ping;
-            this.emit('partyUpdated');
-        });
+        this.emit('partyUpdated');
+        this.party[peer].ping = await this.network.rtcConnection(peer).testLatency(5000);
         this.emit('partyUpdated');
     }
 

@@ -32,28 +32,29 @@ export class GameSession extends EventEmitter {
         }
     }
 
-    prepare() {
-        fetch(this.songURL)
-            .then((response) => response.text())
-            .catch((e) => this.emit("error", e))
-            .then((text) => this._prepare(text))
+    async prepare() {
+        try {
+            let response = await fetch(this.songURL);
+            this._prepare(await response.text());
+        } catch (e) {
+            this.emit("error", e);
+        }
     }
 
-    start() {
+    async start() {
         this.display.createGameLayout();
-        this.display.title().then(() => {
-            if (this.ready) {
-                this._startTime = this._ac.currentTime;
-                let duration = undefined;
-                if (this.song.end) {
-                    duration = (this.song.end / 1000) - (this.song.start || 0);
-                }
-                this.audio.start(0, this.song.start || 0, duration);
-                this._startedPlaying();
-            } else {
-                throw new Error("Not ready yet.");
+        await this.display.title();
+        if (this.ready) {
+            this._startTime = this._ac.currentTime;
+            let duration = undefined;
+            if (this.song.end) {
+                duration = (this.song.end / 1000) - (this.song.start || 0);
             }
-        });
+            this.audio.start(0, this.song.start || 0, duration);
+            this._startedPlaying();
+        } else {
+            throw new Error("Not ready yet.");
+        }
     }
 
     cleanup() {
@@ -78,12 +79,15 @@ export class GameSession extends EventEmitter {
         this.display.prepareVideo();
     }
 
-    _fetchAudio() {
-        fetch(this.song.mp3)
-            .then((x) => x.arrayBuffer())
-            .then((buffer) => this._ac.decodeAudioData(buffer))
-            .then((buffer) => { this.audio.buffer = buffer; this._maybeReady(); })
-            .catch((e) => console.error("Failed", e));
+    async _fetchAudio() {
+        try {
+            let result = await fetch(this.song.mp3);
+            let buffer = await result.arrayBuffer();
+            this.audio.buffer = await this._ac.decodeAudioData(buffer);
+            this._maybeReady()
+        } catch (e) {
+            console.error("Failed", e);
+        }
     }
 
     _maybeReady() {
@@ -96,8 +100,8 @@ export class GameSession extends EventEmitter {
         }
     }
 
-    _startedPlaying() {
-        this.display.start();
+    async _startedPlaying() {
+        await this.display.start();
         for (let player of this.players) {
             player.start();
         }

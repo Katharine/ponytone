@@ -25,33 +25,26 @@ function renderSong(songInfo) {
 let _songData = null;
 let _songMapData = null;
 
-function getSongData() {
-    return new Promise(function(resolve) {
-        if (_songData) {
-            resolve(_songData);
-            return;
-        }
-        fetch("/tracklist")
-            .then((r) => r.json())
-            .then((data) => resolve(_songData = data));
-    });
+async function getSongData() {
+    if (_songData) {
+        return _songData;
+    }
+
+    let result = await fetch("/tracklist");
+    let json = await result.json();
+    return _songData = json;
 }
 
-function getSongMap() {
-    return new Promise((resolve) => {
-        if (_songMapData) {
-            resolve(_songMapData);
-            return;
-        }
-        getSongData()
-            .then((songData) => {
-                let result = {};
-                for (let song of songData) {
-                    result[song.id] = song;
-                }
-                resolve(_songMapData = result);
-            });
-    });
+async function getSongMap() {
+    if (_songMapData) {
+        return _songMapData;
+    }
+
+    let result = {};
+    for (let song of await getSongData()) {
+        result[song.id] = song;
+    }
+    return _songMapData = result;
 }
 
 export class TrackList extends EventEmitter {
@@ -103,10 +96,8 @@ export class TrackQueue {
         window.cluster = this.cluster;
     }
 
-    updateQueue(playlist) {
-        getSongMap()
-            .then((map) => {
-                this.cluster.update(playlist.map((i) => renderSong(map[i])));
-            });
+    async updateQueue(playlist) {
+        let map = await getSongMap();
+        this.cluster.update(playlist.map((i) => renderSong(map[i])));
     }
 }

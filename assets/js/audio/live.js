@@ -19,19 +19,35 @@ export class LiveAudio extends EventEmitter {
         this.source = null;
         this.gain = this.context.createGain();
         this.gain.gain.value = 1;
-        navigator.mediaDevices.getUserMedia({
-            audio: {
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false,
-                googAutoGainControl: false,
-                mozAutoGainControl: false,
-                googNoiseSuppression: false,
-                mozNoiseSuppression: false,
-            }
-        })
-            .then((stream) => this._handleMedia(stream))
-            .catch((err) => this._mediaFailed(err));
+        this._getMedia();
+    }
+
+    async _getMedia() {
+        try {
+            this.stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                    googAutoGainControl: false,
+                    mozAutoGainControl: false,
+                    googNoiseSuppression: false,
+                    mozNoiseSuppression: false,
+                }
+            });
+        } catch (e) {
+            this.ready = false;
+            console.error("Media failed.");
+            console.log(err);
+            this.emit("failed");
+        }
+
+        this.source = this.context.createMediaStreamSource(this.stream);
+        this.source.connect(this.gain);
+        this.gain.connect(this.biquad);
+        this.biquad.connect(this.analyser);
+        this.analyser.connect(this.dummy);
+        this.ready = true;
     }
 
     _processAudio(e) {
@@ -42,23 +58,6 @@ export class LiveAudio extends EventEmitter {
                 this.onnote(note);
             }
         }
-    }
-
-    _handleMedia(stream) {
-        this.stream = stream;
-        this.source = this.context.createMediaStreamSource(this.stream);
-        this.source.connect(this.gain);
-        this.gain.connect(this.biquad);
-        this.biquad.connect(this.analyser);
-        this.analyser.connect(this.dummy);
-        this.ready = true;
-    }
-
-    _mediaFailed(err) {
-        this.ready = false;
-        console.error("Media failed.");
-        console.log(err);
-        this.emit("failed");
     }
 
     static isAudioAvailable() {

@@ -1,11 +1,11 @@
 let path = require("path");
-var BundleTracker = require('webpack-bundle-tracker')
+let BundleTracker = require('webpack-bundle-tracker');
 
 
 module.exports = {
     context: __dirname,
     entry: {
-        'party': './assets/js/index',
+        'party': ['regenerator-runtime/runtime', './assets/js/index'],
     },
     module: {
         rules: [
