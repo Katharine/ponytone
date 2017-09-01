@@ -1,5 +1,5 @@
-import {default as escapeHtml} from 'escape-html';
-console.log(escapeHtml);
+import escapeHtml from 'escape-html';
+
 export class PartyList {
     constructor(container, party) {
         this.container = container;

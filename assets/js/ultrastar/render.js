@@ -1,4 +1,4 @@
-import {default as Colour} from 'color';
+import Colour from 'color';
 
 export class LyricRenderer {
     constructor(canvas, x, y, w, h) {

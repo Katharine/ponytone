@@ -1,5 +1,5 @@
 "use strict";
-import {default as Clusterize} from 'clusterize.js';
+import Clusterize from 'clusterize.js';
 
 let EventEmitter = require('events');
 
