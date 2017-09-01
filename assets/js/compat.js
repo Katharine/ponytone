@@ -12,10 +12,6 @@ export function isCompatible() {
             console.error("No AnalyserNode.");
             return false;
         }
-        if (!AnalyserNode.prototype.getFloatTimeDomainData) {
-            console.error("No AnalyserNode.getFloatTimeDomainData.");
-            return false;
-        }
         if (!window.RTCPeerConnection) {
             console.error("No WebRTC support.");
             return false;

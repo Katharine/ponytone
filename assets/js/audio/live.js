@@ -1,4 +1,4 @@
-import {getNoteFromFFT} from "./pitch";
+import {getNoteFromBuffer} from "./pitch";
 import {getAudioContext} from "../util/audio-context";
 
 let EventEmitter = require("events");
@@ -8,14 +8,17 @@ export class LiveAudio extends EventEmitter {
         super();
         this.ready = false;
         this.context = getAudioContext();
-        this.analyser = this.context.createAnalyser();
-        this.analyser.fftSize = 2048;
-        this.fft = new Float32Array(this.analyser.frequencyBinCount);
+        this.analyser = this.context.createScriptProcessor(1024);
+        this.analyser.onaudioprocess = (e) => this._processAudio(e);
         this.biquad = this.context.createBiquadFilter();
         this.biquad.type = "lowpass";
         this.biquad.frequency.value = 2000;
         this.biquad.Q.value = 0.5;
+        this.dummy = this.context.createAnalyser();
+        this.dummy.fftSize = 32;
         this.source = null;
+        this.gain = this.context.createGain();
+        this.gain.gain.value = 1;
         navigator.mediaDevices.getUserMedia({
             audio: {
                 echoCancellation: false,
@@ -31,16 +34,23 @@ export class LiveAudio extends EventEmitter {
             .catch((err) => this._mediaFailed(err));
     }
 
-    getNoteFromMic() {
-        this.analyser.getFloatTimeDomainData(this.fft);
-        return getNoteFromFFT(this.fft, this.context.sampleRate);
+    _processAudio(e) {
+        let buffer = e.inputBuffer.getChannelData(0);
+        let note = getNoteFromBuffer(buffer, this.context.sampleRate);
+        if (note.number) {
+            if (this.onnote) {
+                this.onnote(note);
+            }
+        }
     }
 
     _handleMedia(stream) {
         this.stream = stream;
         this.source = this.context.createMediaStreamSource(this.stream);
-        this.source.connect(this.biquad);
+        this.source.connect(this.gain);
+        this.gain.connect(this.biquad);
         this.biquad.connect(this.analyser);
+        this.analyser.connect(this.dummy);
         this.ready = true;
     }
 
@@ -82,20 +92,20 @@ export class Singing {
         this.currentBeat = -1;
         this.samples = 0;
         this.average = 0;
-        this.interval = setInterval(() => this._addNote(), 0.3 * 1000 / (this.song.bpm * 4 / 60));
+        this.audio.onnote = (note) => this._addNote(note);
     }
 
     stop() {
-        clearInterval(this.interval);
+        this.audio.onnote = null;
+        this.audio.source.disconnect();
     }
 
-    _addNote() {
-        let beat = this.song.msToBeats((this.track.currentTime*1000)|0) - 3;
+    _addNote(note) {
+        let beat = this.song.msToBeats((this.track.currentTime*1000)|0) - 2;
         if (beat < 0 || beat <= this.currentBeat) {
             return;
         }
-        let note = this.audio.getNoteFromMic();
-        if (isNaN(note.number) || note.number === -Infinity) {
+        if (isNaN(note.number) || note.number === null || note.number === -Infinity) {
             return;
         }
         if (this.currentBeat === beat) {
