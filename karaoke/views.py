@@ -19,10 +19,6 @@ def index(request):
     return render(request, "karaoke/index.html", {'songs': songs})
 
 
-def song(request, song_id):
-    return render(request, "karaoke/song.html", {'song': song_id})
-
-
 def party(request, party_id):
     party = get_object_or_404(Party, id=party_id)
     now = round(time.time() + 86400)

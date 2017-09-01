@@ -5,7 +5,6 @@ var BundleTracker = require('webpack-bundle-tracker')
 module.exports = {
     context: __dirname,
     entry: {
-        'song': './assets/js/song',
         'party': './assets/js/index',
     },
     module: {
