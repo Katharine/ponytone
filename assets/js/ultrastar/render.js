@@ -30,11 +30,12 @@ export class LyricRenderer {
         if (!line) {
             return;
         }
-        this._renderLyrics(line, beat, 0, this.rect.h * 0.5);
+        let startX = this._renderLyrics(line, beat, 0, this.rect.h * 0.5);
         let nextLine = this.song.getLineAtIndex(line.index + 1, this.part);
         if (nextLine) {
             this._renderLyrics(nextLine, beat, this.rect.h * 0.55, this.rect.h * 0.3);
         }
+        this._renderStartIndicator(line, beat, this.rect.h * 0.5, startX);
         ctx.restore();
     }
 
@@ -47,12 +48,14 @@ export class LyricRenderer {
         ctx.font = `${size}px sans-serif`;
         let lineText = line.notes.map((x) => x.text).join('');
         let totalWidth = ctx.measureText(lineText).width;
-        let x = this.rect.x + (this.rect.w/2 - totalWidth/2);
+        let availableWidth = this.rect.w * 0.9;
+        let x = this.rect.x + (availableWidth/2 - totalWidth/2) + (this.rect.w - availableWidth) / 2;
         let squashTextRatio = null;
         if (x < 0) {
             x = 0;
-            squashTextRatio = this.rect.w / totalWidth;
+            squashTextRatio = availableWidth / totalWidth;
         }
+        let startX = x;
         y = this.rect.y + y;
         for (let note of line.notes) {
             let active = (beat >= note.beat && beat < note.beat + note.length);
@@ -76,6 +79,21 @@ export class LyricRenderer {
             x += maxWidth || expectedWidth;
             ctx.restore();
         }
+        return startX;
+    }
+
+    _renderStartIndicator(line, beat, height, width) {
+        const MIN_SILENT_SECONDS = 2;
+        let firstBeat = line.notes[0].beat;
+        let start = line.index === 0 ? this.song.msToBeats(0) : line.start;
+        if (beat >= firstBeat || firstBeat - start < MIN_SILENT_SECONDS * 4 * this.song.bpm / 60) {
+            return;
+        }
+        let ctx = this.context;
+        ctx.save();
+        ctx.fillStyle = this.activeColour;
+        ctx.fillRect(this.rect.x + 5, this.rect.y + height * 0.15, Math.abs((width - 10) * (beat - start) / (firstBeat - start)), height * 0.8);
+        ctx.restore();
     }
 }
 
