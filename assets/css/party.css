@@ -161,7 +161,7 @@ button:active {
     text-align: center;
     position: relative;
     top: 50%;
-    transform: translateY(-50%);
+    transform: translate3d(0, -50%, 0);
 }
 
 .modal-text {
@@ -303,13 +303,13 @@ h2 {
     margin-left: auto;
     margin-right: auto;
     text-align: center;
-    background: url("../img/loading.png") no-repeat;
+    background: url("../img/loading.png") no-repeat transparent;
 }
 
 #chromia {
     display: inline-block;
     padding-right: 25px;
-    background: url("../img/chromia.png") no-repeat;
+    background: url("../img/chromia.png") no-repeat transparent;
     width: 240px;
     height:  240px;
 }
