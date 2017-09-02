@@ -83,7 +83,7 @@ export class GameDisplay extends EventEmitter {
 
         let d = (x, y, w, h) => ({x: x / SCALE_W * cw, y: y / SCALE_H * ch, w: w / SCALE_W * cw, h: h / SCALE_H * ch});
 
-        const LYRICS = [d(0, 670, 1280, 50), d(0, 0, 1280, 50)];
+        const LYRICS = [d(0, 630, 1280, 90), d(0, 0, 1280, 90)];
         const LAYOUTS = {
             1: [{notes: d(20, 360, 1240, 250), score: d(0, 300, 1260, 60)}],
             2: [{notes: d(20, 430, 1240, 240), score: d(0, 360, 1260, 50)},

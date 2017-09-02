@@ -24,17 +24,27 @@ export class LyricRenderer {
         let ctx = this.context;
         ctx.save();
         ctx.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
-        ctx.fillStyle = 'rgba(50, 50, 50, 0.4)';
+        ctx.fillStyle = 'rgba(50, 50, 50, 0.8)';
         ctx.fillRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
-        ctx.font = `${this.rect.h * 0.95}px sans-serif`;
-        ctx.strokeStyle = 'black';
-        ctx.fillStyle = 'white';
-        ctx.textBaseline = 'middle';
-        ctx.lineWidth = 1.5;
         let line = this.song.getLine(time, this.part);
         if (!line) {
             return;
         }
+        this._renderLyrics(line, beat, 0, this.rect.h * 0.5);
+        let nextLine = this.song.getLineAtIndex(line.index + 1, this.part);
+        if (nextLine) {
+            this._renderLyrics(nextLine, beat, this.rect.h * 0.55, this.rect.h * 0.3);
+        }
+        ctx.restore();
+    }
+
+    _renderLyrics(line, beat, y, size) {
+        let ctx = this.context;
+        ctx.strokeStyle = 'black';
+        ctx.fillStyle = 'white';
+        ctx.textBaseline = 'top';
+        ctx.lineWidth = 1.5;
+        ctx.font = `${size}px sans-serif`;
         let lineText = line.notes.map((x) => x.text).join('');
         let totalWidth = ctx.measureText(lineText).width;
         let x = this.rect.x + (this.rect.w/2 - totalWidth/2);
@@ -43,19 +53,15 @@ export class LyricRenderer {
             x = 0;
             squashTextRatio = this.rect.w / totalWidth;
         }
-        let y = this.rect.y + this.rect.h/2;
-        if (window.chrome) {
-            y -= (this.rect.h * 0.95) / 11;
-        }
+        y = this.rect.y + y;
         for (let note of line.notes) {
             let active = (beat >= note.beat && beat < note.beat + note.length);
+            ctx.save();
             if (active) {
-                ctx.save();
                 ctx.fillStyle = this.activeColour;
                 ctx.strokeStyle = 'white';
             }
             if (note.type === 'F') {
-                ctx.save();
                 ctx.font = `italic ${ctx.font}`;
             }
             let expectedWidth = ctx.measureText(note.text).width;
@@ -64,16 +70,12 @@ export class LyricRenderer {
                 maxWidth = expectedWidth * squashTextRatio;
             }
             ctx.fillText(note.text, x, y, maxWidth);
-            ctx.strokeText(note.text, x, y, maxWidth);
-            x += maxWidth || expectedWidth;
-            if (note.type === 'F') {
-                ctx.restore();
-            }
             if (active) {
-                ctx.restore();
+                ctx.strokeText(note.text, x, y, maxWidth);
             }
+            x += maxWidth || expectedWidth;
+            ctx.restore();
         }
-        ctx.restore();
     }
 }
 

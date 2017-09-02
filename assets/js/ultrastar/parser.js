@@ -27,16 +27,25 @@ export class Song {
                 if (this.parts[part][i].end && this.parts[part][i].end > beat) {
                     return null;
                 }
-                return new SongLine(this, this.parts[part][i]);
+                return new SongLine(this, i, this.parts[part][i]);
             }
         }
-        let lastLine = this.parts[part][this.parts[part].length - 1];
+        let lastLineIndex = this.parts[part].length - 1;
+        let lastLine = this.parts[part][lastLineIndex];
         if (beat >= lastLine.start) {
             if (!lastLine.end || lastLine.end > beat) {
-                return new SongLine(this, lastLine);
+                return new SongLine(this, lastLineIndex, lastLine);
             }
         }
         return null;
+    }
+
+    getLineAtIndex(index, part) {
+        let line = this.parts[part || 0][index];
+        if (!line) {
+            return null;
+        }
+        return new SongLine(this, index, line);
     }
 
     msToBeats(time) {
@@ -175,8 +184,9 @@ export class Song {
 }
 
 export class SongLine {
-    constructor(song, line) {
+    constructor(song, index, line) {
         this.song = song;
+        this.index = index;
         this.line = line;
     }
 
