@@ -49,10 +49,11 @@ export class LyricRenderer {
         let lineText = line.notes.map((x) => x.text).join('');
         let totalWidth = ctx.measureText(lineText).width;
         let availableWidth = this.rect.w * 0.9;
-        let x = this.rect.x + (availableWidth/2 - totalWidth/2) + (this.rect.w - availableWidth) / 2;
+        let minX = (this.rect.w - availableWidth) / 2;
+        let x = this.rect.x + (availableWidth/2 - totalWidth/2) + minX;
         let squashTextRatio = null;
-        if (x < 0) {
-            x = 0;
+        if (x < minX) {
+            x = minX;
             squashTextRatio = availableWidth / totalWidth;
         }
         let startX = x;
