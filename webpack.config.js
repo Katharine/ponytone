@@ -1,5 +1,6 @@
 let path = require("path");
 let BundleTracker = require('webpack-bundle-tracker');
+let ExtractTextPlugin = require('extract-text-webpack-plugin');
 
 
 module.exports = {
@@ -12,10 +13,10 @@ module.exports = {
             {test: /\.js$/, exclude: /node_modules/, loader: "babel-loader"},
             {test: /\.(mp3|mp4|png)$/, loader: "file-loader"},
             {test: /\.txt$/, loader: "raw-loader"},
-            {test: /\.css$/, use: [
-                {loader: "style-loader"},
-                {loader: "css-loader"},
-            ]}
+            {test: /\.css$/, use: ExtractTextPlugin.extract({
+                fallback: "style-loader",
+                use: "css-loader",
+            })},
         ],
     },
     externals: {
@@ -23,6 +24,7 @@ module.exports = {
     },
     plugins: [
         new BundleTracker({filename: './webpack-stats.json'}),
+        new ExtractTextPlugin("styles-[hash].css"),
     ],
     devtool: "sourcemap",
     output: {
