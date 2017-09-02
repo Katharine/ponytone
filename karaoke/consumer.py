@@ -71,7 +71,7 @@ def party_message(message):
         message.http_session['nickname'] = content['nick']
         message.reply_channel.send({"text": json.dumps({
             "action": "member_list",
-            "members": {x.channel: {'nick': x.nick, 'colour': x.colour} for x in party.members.all()},
+            "members": {x.channel: {'nick': x.nick, 'colour': x.colour, 'id': x.id} for x in party.members.all()},
         })})
         message.reply_channel.send({"text": json.dumps({
             "action": "playlist",
@@ -83,6 +83,7 @@ def party_message(message):
             "channel": message.reply_channel.name,
             "nick": member.nick,
             "colour": member.colour,
+            "id": member.id,
         })})
         message.http_session.save()
     elif action == 'relay':
