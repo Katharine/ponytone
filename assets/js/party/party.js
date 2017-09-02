@@ -19,6 +19,7 @@ export class Party extends EventEmitter {
         this.nick = nick;
         this.party = {};
         this.queue = [];
+        this.sessionParty = null;
         this.playing = false;
         this.network = new NetworkSession(this.nick);
         this.network.on('gotMemberList', (members) => this._handleMemberList(members));
@@ -71,6 +72,12 @@ export class Party extends EventEmitter {
 
     _handleMemberLeft(member) {
         delete this.party[member.channel];
+        if (this.sessionParty) {
+            delete this.sessionParty[member.channel];
+            if (this.playing) {
+                this._handleTrackLoaded();
+            }
+        }
         this.emit('partyUpdated');
     }
 
@@ -102,9 +109,12 @@ export class Party extends EventEmitter {
     }
 
     _handleTrackLoaded(peer) {
-        this.party[peer].loaded = true;
-        this.emit('partyUpdated');
-        let pending = Object.values(this.party).reduce((a, v) => a + (v.loaded ? 0 : 1), 0);
+        if (peer) {
+            this.sessionParty[peer].loaded = true;
+            this.emit('partyUpdated');
+        }
+        console.log('session members', this.sessionParty);
+        let pending = Object.values(this.sessionParty).reduce((a, v) => a + (v.loaded ? 0 : 1), 0);
         if (pending === 0) {
             if (this.isMaster) {
                 console.log("Time to begin!");
@@ -136,6 +146,8 @@ export class Party extends EventEmitter {
         for (let member of Object.values(this.party)) {
             member.loaded = false;
         }
+        this.sessionParty = {...this.party};
+        console.log('session members', this.sessionParty);
         this.emit("partyUpdated");
         this.emit("loadTrack", track);
     }
@@ -146,7 +158,7 @@ export class Party extends EventEmitter {
     }
 
     _startGame() {
-        let maxPing = Object.values(this.party).reduce((a, v) => a + (v.ping||0), 0) / 2;
+        let maxPing = Object.values(this.sessionParty).reduce((a, v) => a + (v.ping||0), 0) / 2;
         let startTime = Math.round(fixedTimestamp() + maxPing * 1.5);
         startTime += 50; // because if it's very short other issues can appear.
         this._handleStartGame(startTime);
@@ -158,7 +170,7 @@ export class Party extends EventEmitter {
         let delay = time - now;
         setTimeout(() => this.emit("startGame"), delay);
         console.log(`Game start in ${delay}ms.`);
-        for (let member of Object.values(this.party)) {
+        for (let member of Object.values(this.sessionParty)) {
             member.loaded = false;
             member.ready = false;
         }
@@ -176,6 +188,7 @@ export class Party extends EventEmitter {
 
     trackEnded() {
         this.playing = false;
+        this.sessionParty = null;
         this.emit('partyUpdated');
     }
 
@@ -184,7 +197,7 @@ export class Party extends EventEmitter {
     }
 
     get isMaster() {
-        let peers = Object.keys(this.party);
+        let peers = Object.keys(this.sessionParty || this.party);
         peers.sort();
         return (this.network.channelName === peers[0]);
     }
