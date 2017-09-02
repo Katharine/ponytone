@@ -16,6 +16,7 @@ export class GameDisplay extends EventEmitter {
         this.div = null;
         this.videoElement = null;
         this.canvasElement = null;
+        this.canvasContext = null;
         this._currentCanvasScale = null;
         this.lyricRenderers = [];
         this.noteRenderers = [];
@@ -46,6 +47,7 @@ export class GameDisplay extends EventEmitter {
         this.canvasElement.style.position = 'absolute';
         this.canvasElement.style.top = 0;
         this.canvasElement.style.left = 0;
+        this.canvasContext = this.canvasElement.getContext('2d');
         this._scaleCanvas();
 
         this.div = document.createElement('div');
@@ -108,7 +110,7 @@ export class GameDisplay extends EventEmitter {
                 {notes: d(650, 90, 610, 166), score: d(650, 50, 610, 40)}],
         };
 
-        this.canvasElement.getContext('2d').clearRect(0, 0, cw, ch);
+        this.canvasContext.clearRect(0, 0, cw, ch);
 
         for (let [i, renderer] of this.lyricRenderers.entries()) {
             let {x, y, w, h} = LYRICS[i];
@@ -200,7 +202,7 @@ export class GameDisplay extends EventEmitter {
                     }
                 };
                 setTimeout(() =>{
-                    this.canvasElement.getContext('2d').clearRect(0, 0, this.canvasElement.clientWidth, this.canvasElement.clientHeight);
+                    this.canvasContext.clearRect(0, 0, this.canvasElement.clientWidth, this.canvasElement.clientHeight);
                     resolve();
                 }, 667);
                 requestAnimationFrame(fade);
@@ -261,6 +263,9 @@ export class GameDisplay extends EventEmitter {
 
         let time = (this.audio.currentTime * 1000) | 0;
 
+        // hide all our OOB rendering errors by clearing everything each frame.
+        this.canvasContext.clearRect(0, 0, this.canvasElement.clientWidth,  this.canvasElement.clientHeight);
+
         for (let lyricRenderer of this.lyricRenderers) {
             lyricRenderer.render(time);
         }
@@ -284,7 +289,7 @@ export class GameDisplay extends EventEmitter {
         this._currentCanvasScale = devicePixelRatio;
 
         // determine the 'backing store ratio' of the canvas context
-        let context = this.canvasElement.getContext('2d');
+        let context = this.canvasContext;
         const backingStoreRatio = (
             context.webkitBackingStorePixelRatio ||
             context.mozBackingStorePixelRatio ||
