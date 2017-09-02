@@ -31,7 +31,7 @@
 </div>
 <div id="nick-container" class="modal-text">
     <div class="container">
-        <h1 style="font-family: 'Celestia Redux'">Ponytone</h1>
+        <h1 style="font-family: 'Celestia Redux', sans-serif">Ponytone</h1>
         <p>
             Join the party! Enter a nickname:<br>
             <input type="text" id="nick-input" autofocus>
@@ -40,9 +40,14 @@
 </div>
 <div id="game-container" style="position: absolute; top: 0; left: 0; background-color: white;">
 </div>
-<table id="loading" style="width: 100%; height: 100%; background-color: white; position: absolute; top: 0; left: 0; display: none;">
-    <tr><td style="text-align: center; vertical-align: middle; width: 100%;"><img id="loading-image"></td></tr>
-</table>
+<div style="display: none;" id="loading">
+    <div style="" class="middle">
+        <div class="middle">
+            <h2>Loading...</h2>
+            <div id="loading-list"></div>
+        </div>
+    </div>
+</div>
 <div style="display: none;" id="unsupported-browser" class="modal-text">
     <div class="container">
         <h1>Ponytone</h1>

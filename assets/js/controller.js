@@ -3,6 +3,7 @@ import {GameSession} from "./game";
 import {PartyList} from "./party/partylist";
 import {TrackList, TrackQueue} from "./tracklist";
 import {LocalPlayer, RemotePlayer} from "./player";
+import escapeHtml from "escape-html";
 
 export class GameController {
     constructor(nick, gameContainer, partyContainer) {
@@ -26,6 +27,7 @@ export class GameController {
         this.lastTransmittedBeat = -1;
         this.beatTransmitInterval = null;
         this.remotePlayers = {};
+        this.loadingScreen = false;
         window.addEventListener('resize', () => this._handleResize());
     }
 
@@ -36,16 +38,19 @@ export class GameController {
     }
 
     _loadTrack(track) {
-        document.getElementById('loading').style.display = 'table';
+        document.getElementById('loading').style.display = 'block';
+        this.loadingScreen = true;
         this.session = new GameSession(this.gameContainer, window.innerWidth, window.innerHeight, `https://music.ponytone.online/${track}/notes.txt`);
 
         this.session.prepare();
         this.session.on('ready', () => this._handleTrackLoaded());
         this.session.on('finished', () => this._handleTrackFinished());
+        this._updateLoadingList();
     }
 
     _startGame() {
         document.getElementById('loading').style.display = 'none';
+        this.loadingScreen = false;
         this.session.start();
         this.beatTransmitInterval = setInterval(() => this._transmitBeats(), 66);
     }
@@ -88,6 +93,19 @@ export class GameController {
 
     _updatePartyList() {
         this.partyList.update();
+        if (this.loadingScreen) {
+            this._updateLoadingList();
+        }
+    }
+
+    _updateLoadingList() {
+        let waiting = [];
+        for (let member of Object.values(this.party.sessionParty)) {
+            if (!member.loaded) {
+                waiting.push(member.nick);
+            }
+        }
+        document.getElementById('loading-list').innerHTML = waiting.map(escapeHtml).join('<br>');
     }
 
     _updatePlaylist(playlist) {

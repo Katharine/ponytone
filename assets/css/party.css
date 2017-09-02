@@ -142,6 +142,14 @@ button:active {
     background-color: rgba(255, 255, 255, 0.2);
 }
 
+#party-container .ready {
+    color: #157b15;
+}
+
+#party-container .connecting {
+    color: #c38138;
+}
+
 .middle {
     text-align: center;
     position: relative;
@@ -269,4 +277,24 @@ h2 {
 
 #queue-container li:nth-child(even) {
     background-color: rgba(255, 255, 255, 0.2);
+}
+
+#loading {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: rgb(50, 50, 50);
+    color: white;
+    font-size: 20px;
+}
+
+#loading > div {
+    width: 512px;
+    height: 512px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    background: url("../img/loading.png") no-repeat;
 }

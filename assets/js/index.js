@@ -12,7 +12,7 @@ if (!isCompatible()) {
 } else {
     document.addEventListener('DOMContentLoaded', () => {
         let readyButton = document.getElementById('ready-button');
-        document.getElementById('loading-image').src = require('../img/loading.png');
+        // document.getElementById('loading-image').src = require('../img/loading.png');
 
         let nickPrompt = new NickPrompt();
         let controller = null;
