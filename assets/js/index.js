@@ -11,8 +11,8 @@ if (!isCompatible()) {
     document.getElementById('unsupported-browser').style.display = 'block';
 } else {
     document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('nick-confirm-button').removeAttribute('disabled');
         let readyButton = document.getElementById('ready-button');
-        // document.getElementById('loading-image').src = require('../img/loading.png');
 
         let nickPrompt = new NickPrompt();
         let controller = null;

@@ -5,6 +5,13 @@ body {
     background-color: rgb(168, 217, 241);
 }
 
+@font-face {
+    font-family: "Celestia Redux";
+    src: local("Celestia Redux"),
+         url("../fonts/celestia.woff2") format("woff2"),
+         url("../fonts/celestia.woff") format("woff");
+}
+
 button {
     background-color: white;
     border: 1px solid rgb(98, 140, 255);
@@ -297,4 +304,12 @@ h2 {
     margin-right: auto;
     text-align: center;
     background: url("../img/loading.png") no-repeat;
+}
+
+#chromia {
+    display: inline-block;
+    padding-right: 25px;
+    background: url("../img/chromia.png") no-repeat;
+    width: 240px;
+    height:  240px;
 }

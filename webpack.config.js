@@ -11,7 +11,7 @@ module.exports = {
     module: {
         rules: [
             {test: /\.js$/, exclude: /node_modules/, loader: "babel-loader"},
-            {test: /\.(mp3|mp4|png)$/, loader: "file-loader"},
+            {test: /\.(mp3|mp4|png|woff2?)$/, loader: "file-loader"},
             {test: /\.txt$/, loader: "raw-loader"},
             {test: /\.css$/, use: ExtractTextPlugin.extract({
                 fallback: "style-loader",
