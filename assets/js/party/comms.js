@@ -42,6 +42,8 @@ export class NetworkSession extends EventEmitter {
             case "goodbye":
                 console.log("rejected.");
                 this.ws.socket.close();
+                alert(`Connection rejected by the server: ${message.message}.`);
+                location.reload();
                 this.emit("disconnected");
                 break;
             case "new_member":
