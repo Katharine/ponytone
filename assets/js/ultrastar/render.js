@@ -353,7 +353,7 @@ export class ProgressRenderer {
         // blit the pre-rendered summary view on.
         this.context.drawImage(this.offscreenCanvas, this.rect.x, this.rect.y);
         this.context.fillStyle = 'white';
-        this.context.fillRect(this.rect.x, this.rect.y, this.rect.w * ((time / 1000) / (this.audio.duration)), this.rect.h);
+        this.context.fillRect(this.rect.x, this.rect.y, this.rect.w * (((time / 1000) - (this.song.start || 0)) / (this.audio.duration)), this.rect.h);
         this.context.restore();
     }
 
@@ -368,8 +368,8 @@ export class ProgressRenderer {
         let ctx = this.offscreenContext;
         ctx.clearRect(0, 0, w, h);
         let parts = [[0, '#4287f4'], [1, '#d70000']];
-        let startBeat = this.song.msToBeats(0);
-        let pixelsPerBeat = w / (this.song.msToBeats(this.audio.duration * 1000) - startBeat);
+        let startBeat = this.song.msToBeats((this.song.start || 0) * 1000);
+        let pixelsPerBeat = w / (this.song.msToBeats((this.audio.duration + (this.song.start || 0)) * 1000) - startBeat);
         ctx.globalCompositeOperation = 'lighter';
         for (let [partNum, colour] of parts) {
             if (!this.song.parts[partNum]) {
