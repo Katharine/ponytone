@@ -237,7 +237,7 @@ h2 {
 
 #queue-container li {
     clear: both;
-    height: 160px;
+    height: 110px;
     position: relative;
     width: 100%;
 }
@@ -246,24 +246,24 @@ h2 {
     position: absolute;
     top: 5px;
     left: 2px;
-    width: 150px;
-    height: 150px;
+    width: 100px;
+    height: 100px;
     border: 1px solid rgb(98, 140, 255);
     border-radius: 3px;
 }
 
 #queue-container .song-title {
     position: absolute;
-    top: 25px;
-    left: 170px;
-    font-size: 35px;
+    top: 15px;
+    left: 120px;
+    font-size: 30px;
 }
 
 #queue-container .song-artist {
     position: absolute;
-    top: 90px;
-    left: 170px;
-    font-size: 35px;
+    top: 60px;
+    left: 120px;
+    font-size: 30px;
     color: rgba(0, 0, 0, 0.6);
 }
 
@@ -272,14 +272,14 @@ h2 {
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
-    width: calc(100% - 280px);
+    width: calc(100% - 230px);
 }
 
 #queue-container .duration {
     position: absolute;
     right: 15px;
-    top: 60px;
-    font-size: 35px;
+    top: 37px;
+    font-size: 30px;
 }
 
 #queue-container li:nth-child(even) {
