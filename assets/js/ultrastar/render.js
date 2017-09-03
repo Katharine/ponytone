@@ -165,8 +165,7 @@ export class NoteRenderer {
             }
             let renderLine = (note.pitch - lowestNote + 4) % 18;
 
-            this.renderLine(line, renderLine, note.beat, note.beat + note.length, this.outlineColour, 1);
-            this.renderLine(line, renderLine, note.beat, note.beat + note.length, this.innerColour, EXPECTED_NOTE_INNER_RATIO)
+            this.renderLine(line, renderLine, note.beat, note.beat + note.length, this.innerColour, this.outlineColour, 1);
         }
 
         if (this.player) {
@@ -179,7 +178,14 @@ export class NoteRenderer {
                 let beat = note.time;
                 let actual = line.getNoteNearBeat(beat);
                 let renderLine = ((note.note % 12) - (lowestNote % 12) + 4) % 18;
-                let altLine = ((note.note % 12) - (lowestNote % 12) + 4 + 12) % 18;
+                let altLine;
+                if (renderLine >= 12) {
+                    altLine = renderLine - 12;
+                } else if (renderLine < 6) {
+                    altLine = renderLine + 12;
+                } else {
+                    altLine = renderLine;
+                }
                 let actualLine = (actual.pitch - lowestNote + 4) % 18;
                 while (renderLine < 0) renderLine += 18;
                 while (altLine < 0) altLine += 18;
@@ -198,8 +204,7 @@ export class NoteRenderer {
                 }
                 // now we have to render the *previous* note
                 let ratio = lastWasMatching ? EXPECTED_NOTE_INNER_RATIO : BAD_NOTE_RATIO;
-                this.renderLine(line, lastLine, lastStart, lastEnd, this.singOutlineColour, ratio);
-                this.renderLine(line, lastLine, lastStart, lastEnd, this.singColour, ratio - SUNG_NOTE_INNER_OFFSET);
+                this.renderLine(line, lastLine, lastStart, lastEnd, this.singColour, this.singOutlineColour, ratio);
 
                 // Update what 'previous' means.
                 lastStart = beat;
@@ -211,8 +216,7 @@ export class NoteRenderer {
 
             if (lastLine !== null) {
                 let ratio = lastWasMatching ? EXPECTED_NOTE_INNER_RATIO : BAD_NOTE_RATIO;
-                this.renderLine(line, lastLine, lastStart, lastEnd, this.singOutlineColour, ratio);
-                this.renderLine(line, lastLine, lastStart, lastEnd, this.singColour, ratio - SUNG_NOTE_INNER_OFFSET);
+                this.renderLine(line, lastLine, lastStart, lastEnd, this.singColour, this.singOutlineColour, ratio);
             }
         }
     }
@@ -230,25 +234,31 @@ export class NoteRenderer {
         return this._lineMetrics[line.notes[0].beat];
     }
 
-    renderLine(songLine, renderLine, startBeat, endBeat, colour, scale) {
-        const thickness = this.rect.h / 7;
+    renderLine(songLine, renderLine, startBeat, endBeat, colourInner, colourOuter, scale) {
+        let thickness = this.rect.h / 7;
         let {lineStartBeat, lineEndBeat} = this.metricsForLine(songLine);
         let ctx = this.context;
         ctx.save();
-        ctx.lineCap = 'round';
-        ctx.lineWidth = thickness * scale;
-        ctx.strokeStyle = colour;
+        ctx.lineCap = 'butt';
+
+        thickness *= scale;
+        ctx.fillStyle = colourInner;
+        ctx.strokeStyle = colourOuter;
+        ctx.lineWidth = thickness * 0.1;
         let w = this.rect.w * 0.95;
         let beatWidth = w / (lineEndBeat - lineStartBeat);
         let x = this.rect.h/7;
         let y = this.rect.y + (this.rect.h - ((renderLine + 1) * (this.rect.h / 22))) - this.rect.h / 22;
-        let cap = thickness / 2 * scale;
+        let cap = 0;
 
         ctx.beginPath();
+        if (startBeat === endBeat) {
+            endBeat++;
+        }
         let x1 = this.rect.x + x + cap / scale + beatWidth * (startBeat - lineStartBeat);
         let x2 = this.rect.x + x - cap / scale + beatWidth * (endBeat - lineStartBeat);
-        ctx.moveTo(x1, y);
-        ctx.lineTo(Math.max(x1, x2), y);
+        ctx.fillRect(x1, y - thickness/2, x2 - x1, thickness);
+        ctx.strokeRect(x1, y - thickness/2, x2 - x1, thickness);
         ctx.stroke();
         ctx.restore();
     }
