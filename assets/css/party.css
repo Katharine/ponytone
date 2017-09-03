@@ -5,6 +5,10 @@ body {
     background-color: rgb(168, 217, 241);
 }
 
+body, html {
+    overflow: hidden;
+}
+
 @font-face {
     font-family: "Celestia Redux";
     src: local("Celestia Redux"),
