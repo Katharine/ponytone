@@ -30,6 +30,11 @@ def party_connected(message, party_id):
             member.delete()
         message.http_session.delete('member_id')
     party = Party.objects.get(id=party_id)
+    if party.members.count() >= 6:
+        print("Too many members!")
+        message.reply_channel.send({"text": json.dumps({"action": "goodbye", "message": "room_full"})})
+        message.reply_channel.send({"close": True})
+        return
     member = PartyMember(party=party, channel=message.reply_channel.name)
     member.save()
     message.http_session['member_id'] = member.id
@@ -54,11 +59,6 @@ def party_message(message):
         member.nick = content['nick']
 
         group = Group(f"party-{party.id}")
-        if party.members.count() >= 6:
-            print("Too many members!")
-            message.reply_channel.send({"text": json.dumps({"action": "goodbye", "message": "room_full"})})
-            message.reply_channel.send({"close": True})
-            return
 
         all_colours = ['#058fbe', '#d70000', '#00b100', '#a300c4', '#ee7600', '#122b53']
         used_colours = set(x.colour for x in party.members.all())
@@ -116,6 +116,8 @@ def party_message(message):
 
 @channel_and_http_session
 def party_disconnected(message):
+    if 'member_id' not in message.http_session:
+        return
     try:
         PartyMember.objects.get(id=message.http_session['member_id']).delete()
     except PartyMember.DoesNotExist:
