@@ -22,6 +22,7 @@ export class GameSession extends EventEmitter {
         this._startTime = null;
         this._ready = false;
         this._ac = getAudioContext();
+        this._duration = null;
     }
 
     setSize(width, height) {
@@ -83,7 +84,9 @@ export class GameSession extends EventEmitter {
         try {
             let result = await fetch(this.song.mp3);
             let buffer = await result.arrayBuffer();
-            this.audio.buffer = await this._ac.decodeAudioData(buffer);
+            let decoded = await this._ac.decodeAudioData(buffer);
+            this._duration = decoded.duration;
+            this.audio.buffer = decoded;
             this._maybeReady()
         } catch (e) {
             console.error("Failed", e);
@@ -143,5 +146,14 @@ export class GameSession extends EventEmitter {
 
     get ready() {
         return this._ready;
+    }
+
+    get duration() {
+        let duration = this._duration;
+        if (this.song.end) {
+            duration = (this.song.end / 1000);
+        }
+        duration -= this.song.start || 0;
+        return duration;
     }
 }

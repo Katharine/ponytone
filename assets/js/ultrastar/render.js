@@ -1,5 +1,7 @@
 import Colour from 'color';
 
+const LYRIC_BACKGROUND_COLOUR = 'rgba(50, 50, 50, 0.8)';
+
 export class LyricRenderer {
     constructor(canvas, x, y, w, h) {
         this.canvas = canvas;
@@ -24,7 +26,7 @@ export class LyricRenderer {
         let ctx = this.context;
         ctx.save();
         ctx.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
-        ctx.fillStyle = 'rgba(50, 50, 50, 0.8)';
+        ctx.fillStyle = LYRIC_BACKGROUND_COLOUR;
         ctx.fillRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
         let line = this.song.getLine(time, this.part);
         if (!line) {
@@ -318,5 +320,56 @@ export class TitleRenderer {
             ctx.fillText("Originally created for My Little Karaoke", this.rect.w / 2, 0.6944444444 * this.rect.h, this.rect.w);
         }
         ctx.restore();
+    }
+}
+
+export class ProgressRenderer {
+    constructor(canvas, song, audio, x, y, w, h) {
+        this.canvas = canvas;
+        this.song = song;
+        this.audio = audio;
+        this.rect = {x, y, w, h};
+        this.context = this.canvas.getContext('2d');
+        this.offscreenCanvas = document.createElement('canvas');
+        this.offscreenContext = this.offscreenCanvas.getContext('2d');
+    }
+
+    render(time) {
+        this.context.save();
+        this.context.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
+        this.context.fillStyle = LYRIC_BACKGROUND_COLOUR;
+        this.context.fillRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
+        // blit the pre-rendered summary view on.
+        this.context.drawImage(this.offscreenCanvas, this.rect.x, this.rect.y);
+        this.context.fillStyle = 'white';
+        this.context.fillRect(this.rect.x, this.rect.y, this.rect.w * ((time / 1000) / (this.audio.duration)), this.rect.h);
+        this.context.restore();
+    }
+
+    setRect(x, y, w, h) {
+        this.rect = {x, y, w, h};
+        this._renderSummary();
+    }
+
+    _renderSummary() {
+        let h = this.offscreenCanvas.height = this.rect.h;
+        let w = this.offscreenCanvas.width = this.rect.w;
+        let ctx = this.offscreenContext;
+        ctx.clearRect(0, 0, w, h);
+        let parts = [[0, '#4287f4'], [1, '#d70000']];
+        let startBeat = this.song.msToBeats(0);
+        let pixelsPerBeat = w / (this.song.msToBeats(this.audio.duration * 1000) - startBeat);
+        ctx.globalCompositeOperation = 'lighter';
+        for (let [partNum, colour] of parts) {
+            if (!this.song.parts[partNum]) {
+                break;
+            }
+            ctx.fillStyle = colour;
+            for (let line of this.song.parts[partNum]) {
+                for (let note of line.notes) {
+                    ctx.fillRect((note.beat - startBeat) * pixelsPerBeat, 0, note.length * pixelsPerBeat, h);
+                }
+            }
+        }
     }
 }

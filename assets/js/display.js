@@ -1,6 +1,6 @@
 "use strict";
 
-import {LyricRenderer, NoteRenderer, ScoreRenderer, TitleRenderer} from "./ultrastar/render";
+import {LyricRenderer, NoteRenderer, ProgressRenderer, ScoreRenderer, TitleRenderer} from "./ultrastar/render";
 
 let EventEmitter = require("events");
 
@@ -18,6 +18,7 @@ export class GameDisplay extends EventEmitter {
         this.canvasElement = null;
         this.canvasContext = null;
         this._currentCanvasScale = null;
+        this.progressRenderer = null;
         this.lyricRenderers = [];
         this.noteRenderers = [];
         this.scoreRenderers = [];
@@ -57,8 +58,13 @@ export class GameDisplay extends EventEmitter {
         this.div.appendChild(this.canvasElement);
         this.container.appendChild(this.div);
 
+        this.progressRenderer = new ProgressRenderer(this.canvasElement, this.song, this.audio);
+
+        let lyricColours = ['#4287f4', '#d70000'];
+
         for (let i = 0; i < this.song.parts.length; ++i) {
             let renderer = new LyricRenderer(this.canvasElement);
+            renderer.activeColour = lyricColours[i];
             renderer.setSong(this.song, i);
             this.lyricRenderers.push(renderer);
         }
@@ -85,7 +91,7 @@ export class GameDisplay extends EventEmitter {
 
         let d = (x, y, w, h) => ({x: x / SCALE_W * cw, y: y / SCALE_H * ch, w: w / SCALE_W * cw, h: h / SCALE_H * ch});
 
-        const LYRICS = [d(0, 630, 1280, 90), d(0, 0, 1280, 90)];
+        const LYRICS = [d(0, 610, 1280, 90.999), d(0, 0, 1280, 90)];
         const LAYOUTS = {
             1: [{notes: d(20, 360, 1240, 250), score: d(0, 300, 1260, 60)}],
             2: [{notes: d(20, 430, 1240, 240), score: d(0, 360, 1260, 50)},
@@ -111,6 +117,9 @@ export class GameDisplay extends EventEmitter {
         };
 
         this.canvasContext.clearRect(0, 0, cw, ch);
+
+        let progressRect = d(0, 700, 1280, 20);
+        this.progressRenderer.setRect(progressRect.x, progressRect.y, progressRect.w, progressRect.h);
 
         for (let [i, renderer] of this.lyricRenderers.entries()) {
             let {x, y, w, h} = LYRICS[i];
@@ -265,6 +274,8 @@ export class GameDisplay extends EventEmitter {
 
         // hide all our OOB rendering errors by clearing everything each frame.
         this.canvasContext.clearRect(0, 0, this.canvasElement.clientWidth,  this.canvasElement.clientHeight);
+
+        this.progressRenderer.render(time);
 
         for (let lyricRenderer of this.lyricRenderers) {
             lyricRenderer.render(time);
