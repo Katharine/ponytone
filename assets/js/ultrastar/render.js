@@ -324,8 +324,9 @@ export class TitleRenderer {
         ctx.font = `${this.rect.h*0.07638888889}px sans-serif`;
         ctx.fillText(this.song.metadata.artist, this.rect.w / 2, 0.4166666667 * this.rect.h, this.rect.w);
         ctx.font = `${this.rect.h/18}px sans-serif`;
-        let y = 240;
-        ctx.fillText(`Transcribed by ${this.song.metadata.creator}`, this.rect.w / 2, 0.61111 * this.rect.h, this.rect.w);
+        if (this.song.metadata.creator) {
+            ctx.fillText(`Transcribed by ${this.song.metadata.creator}`, this.rect.w / 2, 0.61111 * this.rect.h, this.rect.w);
+        }
         if (this.song.metadata.comment && this.song.metadata.comment.indexOf('mylittlekaraoke') > -1) {
             ctx.fillText("Originally created for My Little Karaoke", this.rect.w / 2, 0.6944444444 * this.rect.h, this.rect.w);
         }
