@@ -96,7 +96,9 @@ export class Singing {
 
     stop() {
         this.audio.onnote = null;
-        this.audio.source.disconnect();
+        if (this.audio.source) {
+            this.audio.source.disconnect();
+        }
     }
 
     _addNote(note) {
