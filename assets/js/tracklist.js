@@ -25,14 +25,34 @@ function renderSong(songInfo) {
 let _songData = null;
 let _songMapData = null;
 
-async function getSongData() {
-    if (_songData) {
-        return _songData;
+async function getSongData(search) {
+    if (!_songData) {
+        let result = await fetch("/tracklist");
+        let json = await result.json();
+        _songData = json;
+        _songData.sort((a, b) => {
+            if (a.artist.toLowerCase() < b.artist.toLowerCase()) {
+                return -1;
+            } else if (a.artist.toLowerCase() > b.artist.toLowerCase()) {
+                return 1;
+            } else {
+                if (a.title.toLowerCase() < b.title.toLowerCase()) {
+                    return -1;
+                } else if (a.title.toLowerCase() > b.title.toLowerCase()) {
+                    return 1;
+                } else {
+                    return 0;
+                }
+            }
+        })
     }
 
-    let result = await fetch("/tracklist");
-    let json = await result.json();
-    return _songData = json;
+    search = search || '';
+    search = search.toLowerCase();
+    if (search === '') {
+        return _songData;
+    }
+    return _songData.filter((x) => x.title.toLowerCase().includes(search) || x.artist.toLowerCase().includes(search));
 }
 
 async function getSongMap() {
@@ -51,14 +71,25 @@ export class TrackList extends EventEmitter {
     constructor(container) {
         super();
         this.container = container;
+        this.filterDiv = document.createElement('div');
+        this.filterDiv.className = 'song-filters';
+        this.listContainer = document.createElement('div');
+        this.listContainer.className = 'song-list';
+        this.searchInput = document.createElement('input');
+        this.searchInput.type = "search";
+        this.searchInput.className = 'song-search';
+        this.searchInput.placeholder = 'Find songs…';
+        this.searchInput.oninput = () => this._handleFilter();
         this.ul = document.createElement('ul');
-        this.ul.className = 'song-list clusterize-content';
         this.ul.onclick = (e) => this._handleClick(e);
 
         this.container.innerHTML = '';
-        this.container.appendChild(this.ul);
+        this.filterDiv.appendChild(this.searchInput);
+        this.container.appendChild(this.filterDiv);
+        this.listContainer.appendChild(this.ul);
+        this.container.appendChild(this.listContainer);
         this.cluster = new Clusterize({
-            scrollElem: this.container,
+            scrollElem: this.listContainer,
             contentElem: this.ul,
             tag: 'li',
             rows_in_block: 30,
@@ -66,9 +97,7 @@ export class TrackList extends EventEmitter {
         });
         window.cluster = this.cluster;
 
-        getSongData().then((data) => {
-            this.cluster.update(data.map(renderSong));
-        });
+        this._handleFilter();
     }
 
     _handleClick(e) {
@@ -77,6 +106,11 @@ export class TrackList extends EventEmitter {
         }
         console.log(e.target.dataset.song);
         this.emit('songPicked', parseInt(e.target.dataset.song, 10));
+    }
+
+    async _handleFilter() {
+        let songs = await getSongData(this.searchInput.value);
+        this.cluster.update(songs.map(renderSong));
     }
 }
 
