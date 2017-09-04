@@ -126,6 +126,8 @@ export class TrackQueue {
             tag: 'li',
             rows_in_block: 10,
             blocks_in_cluster: 2,
+            no_data_text: "Random!",
+            no_data_class: "track-queue-empty",
         });
         window.cluster = this.cluster;
     }
