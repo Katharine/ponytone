@@ -144,7 +144,8 @@ button:active {
 
 .song-search {
     width: calc(100% - 3px);
-    font-size: 30px;
+    font-size: 16px;
+    height: 23px;
 }
 
 #party-container {
