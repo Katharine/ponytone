@@ -327,7 +327,7 @@ export class TitleRenderer {
         if (this.song.metadata.creator) {
             ctx.fillText(`Transcribed by ${this.song.metadata.creator}`, this.rect.w / 2, 0.61111 * this.rect.h, this.rect.w);
         }
-        if (this.song.metadata.comment && this.song.metadata.comment.indexOf('mylittlekaraoke') > -1) {
+        if (this.song.metadata.comment && this.song.metadata.comment.includes('mylittlekaraoke')) {
             ctx.fillText("Originally created for My Little Karaoke", this.rect.w / 2, 0.6944444444 * this.rect.h, this.rect.w);
         }
         ctx.restore();
