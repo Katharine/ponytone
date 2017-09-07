@@ -1,3 +1,4 @@
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 
@@ -28,6 +29,8 @@ class Song(models.Model):
     language = models.CharField(max_length=255, db_index=True)
     length = models.IntegerField(db_index=True)
     preview_start = models.IntegerField(null=True)
+    parts = ArrayField(models.CharField(max_length=100), null=True)
+    cover_image = models.CharField(max_length=100)
 
 
 class Playlist(models.Model):

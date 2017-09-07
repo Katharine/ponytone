@@ -49,10 +49,14 @@ def ntp(request):
 def track_listing(request):
     results = []
     for song in Song.objects.all():
-        results.append({
+        result = {
             'id': song.id,
             'title': song.title,
             'artist': song.artist,
             'length': song.length,
-        })
+            'cover': song.cover_image,
+        }
+        if song.parts is not None:
+            result['duet'] = song.parts
+        results.append(result)
     return HttpResponse(json.dumps(results), content_type="application/json")

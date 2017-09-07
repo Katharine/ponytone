@@ -6,3 +6,4 @@ postgres-data/
 __pycache__
 .idea/
 .pyenv/
+.DS_Store

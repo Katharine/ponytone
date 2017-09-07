@@ -13,10 +13,8 @@ function formatDuration(seconds) {
 }
 
 function renderSong(songInfo) {
-    let url1 = `//music.ponytone.online/${songInfo.id}/cover.png`;
-    let url2 = `//music.ponytone.online/${songInfo.id}/cover.jpg`;
     return `<li data-song="${songInfo.id}">
-        <img src="${url1}" onerror="if (this.src !== '${url2}') this.src = '${url2}';">
+        <img src="//music.ponytone.online/${songInfo.id}/${songInfo.cover}">
         <span class="song-title">${songInfo.title}</span>
         <span class="song-artist">${songInfo.artist}</span>
         <span class="duration">${formatDuration(songInfo.length)}</span>
