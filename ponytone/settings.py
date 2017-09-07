@@ -80,7 +80,7 @@ WSGI_APPLICATION = 'ponytone.wsgi.application'
 # https://docs.djangoproject.com/en/1.11/ref/settings/#databases
 
 DATABASES = {
-    'default': dj_database_url.config(default='sqlite:///db.sqlite3', conn_max_age=600)
+    'default': dj_database_url.config(default='postgres://postgres@db:5432/postgres', conn_max_age=600)
 }
 
 # Password validation
@@ -132,7 +132,7 @@ WEBPACK_LOADER = {
     }
 }
 
-REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379')
 
 CHANNEL_LAYERS = {
     "default": {
