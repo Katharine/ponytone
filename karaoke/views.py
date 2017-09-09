@@ -45,7 +45,11 @@ def ntp(request):
     return HttpResponse(f"{now - browser_time}:{browser_time}")
 
 
-@condition(last_modified_func=lambda x: datetime.datetime(2017, 8, 26, 23, 59))
+def track_listing_tag(request):
+    return f"lastsong-{Song.objects.latest('id').id}"
+
+
+@condition(etag_func=track_listing_tag)
 def track_listing(request):
     results = []
     for song in Song.objects.all():
