@@ -1,24 +1,29 @@
 import {getNoteFromBuffer} from "./pitch";
 import {getAudioContext} from "../util/audio-context";
+import EventEmitter from "events";
 
-let EventEmitter = require("events");
+
+const SAMPLES_PER_BUFFER = 1024;
+const BUFFERS_REQUIRED = 1;  // I'm not convinced this works properly when > 1
+const TOTAL_SAMPLES = SAMPLES_PER_BUFFER * BUFFERS_REQUIRED;
 
 export class LiveAudio extends EventEmitter {
     constructor() {
         super();
         this.ready = false;
         this.context = getAudioContext();
-        this.analyser = this.context.createScriptProcessor(1024);
+        this.analyser = this.context.createScriptProcessor(SAMPLES_PER_BUFFER);
         this.analyser.onaudioprocess = (e) => this._processAudio(e);
         this.biquad = this.context.createBiquadFilter();
         this.biquad.type = "lowpass";
-        this.biquad.frequency.value = 2000;
+        this.biquad.frequency.value = 2500;
         this.biquad.Q.value = 0.5;
         this.dummy = this.context.createAnalyser();
         this.dummy.fftSize = 32;
         this.source = null;
         this.gain = this.context.createGain();
         this.gain.gain.value = 1;
+        this._buffers = [];
         this._getMedia();
     }
 
@@ -52,7 +57,20 @@ export class LiveAudio extends EventEmitter {
 
     _processAudio(e) {
         let buffer = e.inputBuffer.getChannelData(0);
-        let note = getNoteFromBuffer(buffer, this.context.sampleRate);
+        if (this._buffers.length >= BUFFERS_REQUIRED) {
+            this._buffers.shift();
+        }
+        let newBuffer = new Float32Array(buffer.length);
+        newBuffer.set(buffer);
+        this._buffers.push(newBuffer);
+        if (this._buffers.length < BUFFERS_REQUIRED) {
+            return;
+        }
+        let fullBuffer = new Float32Array(TOTAL_SAMPLES);
+        for (let [i, b] of this._buffers.entries()) {
+            fullBuffer.set(b, i * SAMPLES_PER_BUFFER);
+        }
+        let note = getNoteFromBuffer(fullBuffer, this.context.sampleRate);
         if (note.number) {
             if (this.onnote) {
                 this.onnote(note);

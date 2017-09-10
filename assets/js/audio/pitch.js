@@ -1,16 +1,12 @@
 "use strict";
 
 const MIN_RMS = 0.01;
-const GOOD_ENOUGH_CORRELATION = 0.8; // this is the "bar" for how close a correlation needs to be
+const GOOD_ENOUGH_CORRELATION = 0.9; // this is the "bar" for how close a correlation needs to be
 
 function autoCorrelate(buffer, sampleRate) {
     // Keep track of best period/correlation
     let bestPeriod = 0;
     let bestCorrelation = 0;
-
-    // Keep track of local minima (i.e. nearby low correlation)
-    let worstPeriod = 0;
-    let worstCorrelation = 1;
 
     // Remember previous correlation to determine if
     // we're ascending (i.e. getting near a frequency in the signal)
@@ -27,14 +23,11 @@ function autoCorrelate(buffer, sampleRate) {
     let correlation = 0;
     let peak = 0;
 
-    // early stop algorithm
-    let foundPitch = false;
-
     // Constants
     const BUFFER_LENGTH = buffer.length;
     const MAX_SAMPLES = BUFFER_LENGTH / 2;
 
-    const PERIOD_LENGTH = 1022;
+    const PERIOD_LENGTH = MAX_SAMPLES - 2;
     let correlations = new Array(MAX_SAMPLES);
 
 
@@ -113,14 +106,14 @@ function autoCorrelate(buffer, sampleRate) {
         // We're descending (i.e. moving towards frequencies that are NOT in here)
         if(lastCorrelation > correlation){
 
-            if(GOOD_ENOUGH_CORRELATION && bestCorrelation > GOOD_ENOUGH_CORRELATION) {
-                foundPitch = true;
-                break;
-            }
+            // if(GOOD_ENOUGH_CORRELATION && bestCorrelation > GOOD_ENOUGH_CORRELATION) {
+            //     foundPitch = true;
+            //     break;
+            // }
 
             // Save the worst correlation of the latest descend (local minima)
-            worstCorrelation = correlation;
-            worstPeriod = period;
+            // worstCorrelation = correlation;
+            // worstPeriod = period;
 
             // we're ascending, and found a new high!
         } else if(correlation > bestCorrelation){
@@ -131,7 +124,7 @@ function autoCorrelate(buffer, sampleRate) {
         lastCorrelation = correlation;
     }
 
-    if (bestCorrelation >= GOOD_ENOUGH_CORRELATION && foundPitch) {
+    if (bestCorrelation >= GOOD_ENOUGH_CORRELATION) {
         let shift = 0;
         if(i >= 3 && period >= bestPeriod + 1 && correlations[bestPeriod+1] && correlations[bestPeriod-1]){
             // Now we need to tweak the period - by interpolating between the values to the left and right of the
