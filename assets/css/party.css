@@ -36,15 +36,57 @@ button:active {
     height: 100vh;
 }
 
-#ready-button {
+#ready-container {
     float: left;
     clear: left;
     width: calc(70% - 10px);
     height: calc(10% - 10px);
-    font-size: 30px;
     margin-bottom: 5px;
     margin-top: 5px;
     margin-left: 5px;
+}
+
+#ready-container button {
+    width: 100%;
+    height: 100%;
+    float: left;
+    font-size: 30px;
+}
+
+#ready-container .duet-container {
+    width: 50%;
+    float: right;
+    height: 100%;
+    display: none;
+    font-size: 20px;
+}
+
+.duet-label {
+    height: 40%;
+}
+
+#ready-container .duet-container select {
+    width: 100%;
+    height: 60%;
+    font-size: 20px;
+}
+
+.duet-container select.part0,
+.duet-container select > option:nth-child(1) {
+    color: #4287f4;
+}
+
+.duet-container select.part1,
+.duet-container select > option:nth-child(2) {
+    color: #d70000;
+}
+
+#ready-container.duet .duet-container {
+    display: block;
+}
+
+#ready-container.duet button {
+    width: 50%;
 }
 
 #queue-container {

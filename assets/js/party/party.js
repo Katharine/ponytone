@@ -25,7 +25,7 @@ export class Party extends EventEmitter {
         this.network.on('gotMemberList', (members) => this._handleMemberList(members));
         this.network.on('newMember', (member) => this._handleNewMember(member));
         this.network.on('memberLeft', (member) => this._handleMemberLeft(member));
-        this.network.on('readyToGo', (message, peer) => this._handleReady(peer));
+        this.network.on('readyToGo', (message, peer) => this._handleReady(peer, message.part));
         this.network.on('dataChannelEstablished', (peer) => this._handleDataReady(peer));
         this.network.on('startGame', (message, peer) => this._handleStartGame(message.time));
         this.network.on('loadTrack', (message, peer) => this._handleLoadTrack(message.track));
@@ -44,6 +44,7 @@ export class Party extends EventEmitter {
             me: false,
             loaded: false,
             score: null,
+            part: 0,
         }
     }
 
@@ -88,8 +89,9 @@ export class Party extends EventEmitter {
         this.emit('partyUpdated');
     }
 
-    _handleReady(peer) {
+    _handleReady(peer, part) {
         this.party[peer].ready = true;
+        this.party[peer].part = part;
         this.emit('partyUpdated');
         if (this.playing) {
             console.warn("Got ready message but already playing.");
@@ -181,9 +183,9 @@ export class Party extends EventEmitter {
         this.emit('updatedPlaylist', songs);
     }
 
-    setReady() {
-        this.network.broadcast({action: "readyToGo"});
-        this._handleReady(this.network.channelName);
+    setReady(part) {
+        this.network.broadcast({action: "readyToGo", part});
+        this._handleReady(this.network.channelName, part);
     }
 
     trackEnded() {
@@ -204,5 +206,11 @@ export class Party extends EventEmitter {
 
     get me() {
         return this.party[this.network.channelName];
+    }
+
+    get memberIndex() {
+        let peers = Object.values(this.sessionParty || this.party);
+        peers.sort();
+        return peers.findIndex((x) => x.me);
     }
 }

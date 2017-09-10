@@ -25,7 +25,7 @@ function renderSong(songInfo) {
 let _songData = null;
 let _songMapData = null;
 
-async function getSongData(search) {
+export async function getSongData(search) {
     if (!_songData) {
         let result = await fetch("/tracklist");
         let json = await result.json();
@@ -55,7 +55,7 @@ async function getSongData(search) {
     return _songData.filter((x) => x.title.toLowerCase().includes(search) || x.artist.toLowerCase().includes(search));
 }
 
-async function getSongMap() {
+export async function getSongMap() {
     if (_songMapData) {
         return _songMapData;
     }

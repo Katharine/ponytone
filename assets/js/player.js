@@ -9,7 +9,6 @@ export class LocalPlayer {
         this.part = part;
         this.singing = null;
         this.audio = audio;
-        this.part = 0;
     }
 
     setSong(song) {

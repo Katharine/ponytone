@@ -3,6 +3,7 @@ import {GameSession} from "./game";
 import {PartyList} from "./party/partylist";
 import {TrackList, TrackQueue} from "./tracklist";
 import {LocalPlayer, RemotePlayer} from "./player";
+import {Ready} from "./ready";
 import escapeHtml from "escape-html";
 
 export class GameController {
@@ -22,6 +23,9 @@ export class GameController {
         this.party.on('updatedPlaylist', (playlist) => this._updatePlaylist(playlist));
 
         this.trackQueue = new TrackQueue(document.getElementById('queue-scroll'));
+
+        this.ready = new Ready(document.getElementById('ready-container'), this.party);
+        this.ready.on('ready', (part) => this._handleReady(part));
 
         this.session = null;
         this.lastTransmittedBeat = -1;
@@ -78,12 +82,12 @@ export class GameController {
         keys.sort();
         for (let [peer, member] of keys.map((k) => [k, this.party.party[k]])) {
             if (member.me) {
-                let player = new LocalPlayer(member.nick, member.colour, this.session.song, 0, this.session);
+                let player = new LocalPlayer(member.nick, member.colour, this.session.song, member.part, this.session);
                 this.session.addPlayer(player);
                 player.prepare();
                 continue;
             }
-            let player = new RemotePlayer(member.nick, member.colour);
+            let player = new RemotePlayer(member.nick, member.colour, member.part);
             this.remotePlayers[peer] = player;
             this.session.addPlayer(player);
         }
@@ -121,10 +125,15 @@ export class GameController {
         this.session = null;
         this.party.trackEnded();
         this.partyList.update();
+        this.ready.reset();
     }
 
     _addSong(song) {
         console.log(`Adding ${song} to the queue...`);
         this.party.addToPlaylist(song);
+    }
+
+    _handleReady(part) {
+        this.party.setReady(part);
     }
 }

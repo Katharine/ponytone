@@ -12,7 +12,6 @@ if (!isCompatible()) {
 } else {
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('nick-confirm-button').removeAttribute('disabled');
-        let readyButton = document.getElementById('ready-button');
 
         let nickPrompt = new NickPrompt();
         let controller = null;
@@ -20,7 +19,6 @@ if (!isCompatible()) {
             controller = new GameController(nick,
                 document.getElementById('game-container'),
                 document.getElementById('party-container'));
-            readyButton.onclick = () => controller.party.setReady();
         });
         setTimeout(syncTime, 1000);
     });
