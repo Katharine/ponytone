@@ -1,5 +1,5 @@
 import {turnAuth} from "page-data";
-let EventEmitter = require("events");
+import EventEmitter from "events";
 
 export class PeerConnection extends EventEmitter {
     constructor(networkSession, peer) {

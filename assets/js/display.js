@@ -1,8 +1,7 @@
 "use strict";
 
 import {LyricRenderer, NoteRenderer, ProgressRenderer, ScoreRenderer, TitleRenderer} from "./ultrastar/render";
-
-let EventEmitter = require("events");
+import EventEmitter from "events";
 
 export class GameDisplay extends EventEmitter {
     constructor(container, width, height, song, players, audio) {

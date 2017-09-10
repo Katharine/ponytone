@@ -4,8 +4,7 @@ import {Song} from "./ultrastar/parser";
 import {GameDisplay} from "./display";
 import {LocalPlayer} from "./player";
 import {getAudioContext} from "./util/audio-context";
-
-let EventEmitter = require("events");
+import EventEmitter from "events";
 
 export class GameSession extends EventEmitter {
     constructor(container, width, height, songURL) {

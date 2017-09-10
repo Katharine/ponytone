@@ -1,7 +1,6 @@
 import {NetworkSession} from "./comms";
 import {fixedTimestamp} from "../util/ntp";
-
-let EventEmitter = require("events");
+import EventEmitter from "events";
 
 // sequence:
 // 1) everyone joins

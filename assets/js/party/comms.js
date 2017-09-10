@@ -1,8 +1,7 @@
 import {WebSocketBridge} from "django-channels";
 import {PeerConnection} from './p2p';
 import {partyID} from 'page-data';
-
-let EventEmitter = require("events");
+import EventEmitter from "events";
 
 export class NetworkSession extends EventEmitter {
     constructor(nick) {

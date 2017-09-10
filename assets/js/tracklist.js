@@ -1,7 +1,6 @@
 "use strict";
 import Clusterize from 'clusterize.js';
-
-let EventEmitter = require('events');
+import EventEmitter from "events";
 
 function formatDuration(seconds) {
     let minutes = '' + ((seconds/60)|0);
