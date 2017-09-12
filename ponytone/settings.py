@@ -146,3 +146,5 @@ CHANNEL_LAYERS = {
 
 STATIC_ROOT = os.path.join(BASE_DIR, "assets", "bundles")
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+GA_TRACKING_ID = os.environ.get('GA_TRACKING_ID', None)

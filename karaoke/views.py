@@ -6,6 +6,7 @@ import string
 import time
 import datetime
 
+from django.conf import settings
 from django.shortcuts import render, HttpResponse, Http404, HttpResponseRedirect, get_object_or_404
 from django.views.decorators.http import condition
 
@@ -16,7 +17,7 @@ from .models import Party, PartyMember, Playlist, Song
 
 def index(request):
     songs = Song.objects.all()
-    return render(request, "karaoke/index.html", {'songs': songs})
+    return render(request, "karaoke/index.html", {'songs': songs, 'ga': settings.GA_TRACKING_ID})
 
 
 def party(request, party_id):
@@ -26,7 +27,8 @@ def party(request, party_id):
     h = hmac.new(b'hello', msg=username.encode('utf-8'), digestmod='sha1').digest()
     h_encoded = base64.b64encode(h)
     request.session['party_id'] = party.id
-    return render(request, "karaoke/party.html", {'party_id': party.id, 'turn_user': username, 'turn_pass': h_encoded})
+    return render(request, "karaoke/party.html",
+                  {'party_id': party.id, 'turn_user': username, 'turn_pass': h_encoded, 'ga': settings.GA_TRACKING_ID})
 
 
 def create_party(request):
