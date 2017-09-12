@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    {% if ga_tracking_id %}
+    <!-- Google Analytics -->
+    <script>
+        window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+        ga('create', '{{ ga_tracking_id | escapejs }}', 'auto');
+        ga('send', 'pageview');
+    </script>
+    <script async src='https://www.google-analytics.com/analytics.js'></script>
+    <!-- End Google Analytics -->
+    {% endif %}
+    <title>Karaoke!</title>
+    {% block styles %}
+    {% endblock %}
+</head>
+<body>
+{% block content %}
+{% endblock %}
+{% block scripts %}
+{% endblock %}
+</body>
+</html>

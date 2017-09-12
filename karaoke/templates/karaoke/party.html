@@ -1,20 +1,9 @@
+{% extends 'karaoke/base.html' %}
+
 {% load render_bundle from webpack_loader %}
 {% load webpack_static from webpack_loader %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Ponytone!</title>
-    {% if ga %}
-    <!-- Google Analytics -->
-    <script>
-    window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
-    ga('create', '{{ ga | escapejs }}', 'auto');
-    ga('send', 'pageview');
-    </script>
-    <script async src='https://www.google-analytics.com/analytics.js'></script>
-    <!-- End Google Analytics -->
-    {% endif %}
+
+{% block scripts %}
     <script type="text/javascript">
         // This doesn't go through Babel, so be kind to older browsers.
         // (none of which support WebRTC, Web Audio, etc. but still.)
@@ -26,52 +15,56 @@
             }
         };
     </script>
+
+    {% render_bundle 'party' 'js' %}
+{% endblock %}
+
+{% block styles %}
     {% render_bundle 'party' 'css' %}
-</head>
-<body style="padding: 0; margin: 0;">
-<div id="not-game-container" style="">
-    <div id="party-container" style="display: flex; flex-wrap: wrap; align-content: stretch">
-    </div>
-    <div id="track-list-container" class="clusterize-scroll"></div>
-    <div id="ready-container"></div>
-    <div id="queue-container">
-        <h2>Up Next</h2>
-        <div id="queue-scroll">
+{% endblock %}
+
+{% block content %}
+    <div id="not-game-container" style="">
+        <div id="party-container" style="display: flex; flex-wrap: wrap; align-content: stretch">
+        </div>
+        <div id="track-list-container" class="clusterize-scroll"></div>
+        <div id="ready-container"></div>
+        <div id="queue-container">
+            <h2>Up Next</h2>
+            <div id="queue-scroll">
+            </div>
         </div>
     </div>
-</div>
-<div id="nick-container" class="modal-text">
-    <div class="container">
-        <h1 style="font-family: 'Celestia Redux', sans-serif">Ponytone</h1>
-        <p>
-            Join the party! Enter a nickname:<br>
-            <input type="text" id="nick-input" autofocus>
-        <button id="nick-confirm-button" disabled>Join</button></p>
-    </div>
-</div>
-<div id="game-container" style="position: absolute; top: 0; left: 0; background-color: white;">
-</div>
-<div style="display: none;" id="loading">
-    <div style="" class="middle">
-        <div class="middle">
-            <h2>Loading...</h2>
-            <div id="loading-list"></div>
+    <div id="nick-container" class="modal-text">
+        <div class="container">
+            <h1 style="font-family: 'Celestia Redux', sans-serif">sdfz</h1>
+            <p>
+                Join the party! Enter a nickname:<br>
+                <input type="text" id="nick-input" autofocus>
+            <button id="nick-confirm-button" disabled>Join</button></p>
         </div>
     </div>
-</div>
-<div style="display: none;" id="unsupported-browser" class="modal-text">
-    <div class="container">
-        <h1>Ponytone</h1>
-        <p>Your browser isn't supported!</p>
-        <p>Ponytone uses multiple advanced browser features, and your browser doesn't support them yet. We recommend trying Google Chrome.</p>
-        <p>
-            <a href="https://chrome.google.com/">
-                <span id="chromia"></span><br>Get Chrome
-            </a>
-        </p>
-        <p class="smallprint"></p>
+    <div id="game-container" style="position: absolute; top: 0; left: 0; background-color: white;">
     </div>
-</div>
-{% render_bundle 'party' 'js' %}
-</body>
-</html>
+    <div style="display: none;" id="loading">
+        <div style="" class="middle">
+            <div class="middle">
+                <h2>Loading...</h2>
+                <div id="loading-list"></div>
+            </div>
+        </div>
+    </div>
+    <div style="display: none;" id="unsupported-browser" class="modal-text">
+        <div class="container">
+            <h1>Ponytone</h1>
+            <p>Your browser isn't supported!</p>
+            <p>Ponytone uses multiple advanced browser features, and your browser doesn't support them yet. We recommend trying Google Chrome.</p>
+            <p>
+                <a href="https://chrome.google.com/">
+                    <span id="chromia"></span><br>Get Chrome
+                </a>
+            </p>
+            <p class="smallprint"></p>
+        </div>
+    </div>
+{% endblock %}

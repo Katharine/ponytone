@@ -29,7 +29,7 @@ module.exports = {
     devtool: "sourcemap",
     output: {
         filename: "[name]-[hash].js",
-        path: path.resolve("./assets/bundles/"),
-        publicPath: "/static/bundles/"
+        path: path.resolve("./bundles/"),
+        publicPath: "/static/"
     }
 };

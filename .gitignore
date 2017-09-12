@@ -1,4 +1,4 @@
-assets/bundles/
+bundles/
 node_modules/
 db.sqlite3
 webpack-stats.json

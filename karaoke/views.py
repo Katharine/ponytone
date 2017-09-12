@@ -17,7 +17,7 @@ from .models import Party, PartyMember, Playlist, Song
 
 def index(request):
     songs = Song.objects.all()
-    return render(request, "karaoke/index.html", {'songs': songs, 'ga': settings.GA_TRACKING_ID})
+    return render(request, "karaoke/index.html", {'songs': songs})
 
 
 def party(request, party_id):
@@ -28,7 +28,7 @@ def party(request, party_id):
     h_encoded = base64.b64encode(h)
     request.session['party_id'] = party.id
     return render(request, "karaoke/party.html",
-                  {'party_id': party.id, 'turn_user': username, 'turn_pass': h_encoded, 'ga': settings.GA_TRACKING_ID})
+                  {'party_id': party.id, 'turn_user': username, 'turn_pass': h_encoded})
 
 
 def create_party(request):

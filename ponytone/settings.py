@@ -25,7 +25,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = 'z-kspy7)e283mede#4f&=-rxff@3az5=(uo-lzn7u%wbkmfctf'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = 'DEBUG' in os.environ
 
 ALLOWED_HOSTS = ['ponytone.online', 'ponytone.dokku.kathar.in', 'localhost', 'celestia.local', 'celestia']
 
@@ -68,6 +68,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 # 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'ponytone.context.google_analytics',
             ],
         },
     },
@@ -127,7 +128,7 @@ STATICFILES_DIRS = [
 
 WEBPACK_LOADER = {
     "DEFAULT": {
-        "BUNDLE_DIR_NAME": "bundles/",
+        "BUNDLE_DIR_NAME": "/",
         "STATS_FILE": os.path.join(BASE_DIR, "webpack-stats.json")
     }
 }
@@ -144,7 +145,8 @@ CHANNEL_LAYERS = {
     },
 }
 
-STATIC_ROOT = os.path.join(BASE_DIR, "assets", "bundles")
+STATIC_ROOT = os.path.join(BASE_DIR, "bundles")
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 GA_TRACKING_ID = os.environ.get('GA_TRACKING_ID', None)
+
