@@ -1,0 +1,6 @@
+@font-face {
+    font-family: "Celestia Redux";
+    src: local("Celestia Redux"),
+    url("../fonts/celestia.woff2") format("woff2"),
+    url("../fonts/celestia.woff") format("woff");
+}
