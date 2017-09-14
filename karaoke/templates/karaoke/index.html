@@ -1,5 +1,6 @@
-{% extends 'karaoke/base.html' %}
+{% extends 'karaoke/blurb.html' %}
 {% load render_bundle from webpack_loader %}
+{% load webpack_static from webpack_loader %}
 
 {% block styles %}
 {% render_bundle 'index' 'css' %}
@@ -9,39 +10,23 @@
 {% render_bundle 'index' 'js' %}
 {% endblock %}
 
-{% block content %}
-    <div id="wrapper">
-        <div>
-            <header>
-                <div>
-                    <a href="index.html"><h1>Ponytone</h1></a>
-                </div>
-                <nav>
-                    <a href="faq.html">FAQ</a>
-                    <a href="#">Github</a>
-                    <a href="#">About</a>
-                </nav>
-            </header>
+{% block blurb %}
+    <div id="textandbutton">
+        <p>Sing your favourite songs and compete with your friends, or have a Party of One.</p>
+        <div id="buttonwrapper">
+            <button id="partybutton">Create a party!</button>
         </div>
-        <div id="subwrapper">
-            <div id="textandbutton">
-                <p>Sing your favourite songs and compete with your friends, or have a Party of One.</p>
-                <div id="buttonwrapper">
-                    <button id="partybutton">Create a party!</button>
-                </div>
-            </div>
-            <div id="ponytone">
-                <img src="http://stubenserver.no-ip.org/ponytonedesign3/ponytone.png" alt="The ponytones.">
-            </div>
-            <div id="overlay" style="display: none;">
-                <div class="modal">
-                    <h2>Party Time!</h2>
-                    <p>Your link is:</p>
-                    <p class="copylink"><a id="targetlink" href="/party/">ponytone.online/</a></p>
-                    <p>Share it with your friends, or play on your own!</p>
-                    <button id="beginbutton">Begin</button>
-                </div>
-            </div>
+    </div>
+    <div id="ponytone">
+        <img id="ponytone-image" alt="The ponytones.">
+    </div>
+    <div id="overlay" style="display: none;">
+        <div class="modal">
+            <h2>Party Time!</h2>
+            <p>Your link is:</p>
+            <p class="copylink"><a id="targetlink" href="/party/">ponytone.online/</a></p>
+            <p>Share it with your friends, or play on your own!</p>
+            <button id="beginbutton">Begin</button>
         </div>
     </div>
 {% endblock %}

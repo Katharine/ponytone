@@ -1,8 +1,10 @@
 import Cookies from "js-cookie";
 
 import css from "../css/index.css";
+import ponytones from "../img/ponytones.png";
 
 window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('ponytone-image').src = ponytones;
     document.getElementById('partybutton').onclick = () => createParty();
 });
 
