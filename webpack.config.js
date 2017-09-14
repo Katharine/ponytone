@@ -7,7 +7,7 @@ module.exports = {
     context: __dirname,
     entry: {
         'party': ['regenerator-runtime/runtime', './assets/js/party'],
-        'index': ['./assets/js/index'],
+        'index': ['regenerator-runtime/runtime', './assets/js/index'],
     },
     module: {
         rules: [

@@ -1,11 +1,2 @@
-@import "font.css";
+@import url('https://fonts.googleapis.com/css?family=Slackey');
 
-h1 {
-    font-family: 'Slackey', sans-serif;
-    font-size: 60px;
-}
-
-h2 {
-    font-size: 35px;
-    margin: 0;
-}

@@ -23,6 +23,7 @@
     "escape-html": "^1.0.3",
     "extract-text-webpack-plugin": "^3.0.0",
     "file-loader": "^0.11.2",
+    "js-cookie": "^2.1.4",
     "raw-loader": "^0.5.1",
     "regenerator-runtime": "^0.11.0",
     "style-loader": "^0.18.2",

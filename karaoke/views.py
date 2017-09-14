@@ -7,19 +7,22 @@ import time
 import datetime
 
 from django.conf import settings
-from django.shortcuts import render, HttpResponse, Http404, HttpResponseRedirect, get_object_or_404
-from django.views.decorators.http import condition
+from django.shortcuts import render, HttpResponse, get_object_or_404
+from django.views.decorators.http import condition, require_POST
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 from .models import Party, PartyMember, Playlist, Song
 
 # Create your views here.
 
 
+@ensure_csrf_cookie
 def index(request):
     songs = Song.objects.all()
     return render(request, "karaoke/index.html", {'songs': songs})
 
 
+@ensure_csrf_cookie
 def party(request, party_id):
     party = get_object_or_404(Party, id=party_id)
     now = round(time.time() + 86400)
@@ -31,6 +34,7 @@ def party(request, party_id):
                   {'party_id': party.id, 'turn_user': username, 'turn_pass': h_encoded})
 
 
+@require_POST
 def create_party(request):
     while True:
         random_url = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
@@ -38,7 +42,7 @@ def create_party(request):
             break
     party = Party(id=random_url)
     party.save()
-    return HttpResponseRedirect(random_url)
+    return HttpResponse(random_url, content_type="text/plain")
 
 
 def ntp(request):

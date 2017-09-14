@@ -11,6 +11,16 @@ body, html {
     overflow: hidden;
 }
 
+h1 {
+    font-family: 'Slackey', sans-serif;
+    font-size: 60px;
+}
+
+h2 {
+    font-size: 35px;
+    margin: 0;
+}
+
 button {
     background-color: white;
     border: 1px solid rgb(98, 140, 255);

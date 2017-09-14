@@ -16,7 +16,7 @@ Including another URLconf
 from django.conf.urls import url, include
 from django.contrib import admin
 
-from karaoke.views import index, ntp, track_listing
+from karaoke.views import index, ntp, track_listing, party
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
@@ -24,4 +24,5 @@ urlpatterns = [
     url(r'^tracklist', track_listing, name='tracklist'),
     url(r'^$', index, name='index'),
     url(r'^party/', include('karaoke.urls', namespace='karaoke')),
+    url(r'^(?P<party_id>[a-zA-Z0-9]{8})$', party),
 ]
