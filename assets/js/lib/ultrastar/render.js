@@ -1,6 +1,7 @@
 import Colour from 'color';
 
 const LYRIC_BACKGROUND_COLOUR = 'rgba(50, 50, 50, 0.8)';
+const FONT = 'Ubuntu, sans-serif';
 
 export class LyricRenderer {
     constructor(canvas, x, y, w, h) {
@@ -47,7 +48,7 @@ export class LyricRenderer {
         ctx.fillStyle = 'white';
         ctx.textBaseline = 'top';
         ctx.lineWidth = 1.5;
-        ctx.font = `${size}px sans-serif`;
+        ctx.font = `${size}px ${FONT}`;
         let lineText = line.notes.map((x) => x.text).join('');
         let totalWidth = ctx.measureText(lineText).width;
         let availableWidth = this.rect.w * 0.9;
@@ -283,7 +284,7 @@ export class ScoreRenderer {
     render() {
         let ctx = this.canvas.getContext('2d');
         ctx.save();
-        ctx.font = `${this.rect.h/1}px sans-serif`;
+        ctx.font = `${this.rect.h/1}px ${FONT}`;
         ctx.strokeStyle = 'white';
         ctx.fillStyle = this.player.colour;
         ctx.textBaseline = 'top';
@@ -319,11 +320,11 @@ export class TitleRenderer {
         ctx.fillStyle = 'white';
         ctx.textBaseline = 'top';
         ctx.textAlign = 'center';
-        ctx.font = `${this.rect.h/9}px sans-serif`;
+        ctx.font = `${this.rect.h/9}px ${FONT}`;
         ctx.fillText(this.song.metadata.title, this.rect.w / 2, 0.2638888889 * this.rect.h, this.rect.w);
-        ctx.font = `${this.rect.h*0.07638888889}px sans-serif`;
+        ctx.font = `${this.rect.h*0.07638888889}px ${FONT}`;
         ctx.fillText(this.song.metadata.artist, this.rect.w / 2, 0.4166666667 * this.rect.h, this.rect.w);
-        ctx.font = `${this.rect.h/18}px sans-serif`;
+        ctx.font = `${this.rect.h/18}px ${FONT}`;
         if (this.song.metadata.creator) {
             ctx.fillText(`Transcribed by ${this.song.metadata.creator}`, this.rect.w / 2, 0.61111 * this.rect.h, this.rect.w);
         }
