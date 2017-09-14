@@ -115,17 +115,7 @@ header h2, a, a:visited, a:hover, a:active
 
 #textandbutton button {
     font-size:50px;
-    font-family: 'Slackey', cursive;
     padding:50px 20px;
-    border-radius: 15px;
-    color: white;
-    background-color: #ecb0e1;
-    border-top-color: rgba(215, 160, 205, 0.26);
-    border-left-color: rgba(215, 160, 205, 0.26);
-    border-bottom-color: rgba(215, 160, 205, 0.26);
-    border-right-color: rgba(215, 160, 205, 0.26);
-    border-width: 10px;
-    cursor: pointer;
 }
 
 button {
@@ -135,10 +125,7 @@ button {
     border-radius: 15px;
     color: white;
     background-color: #ecb0e1;
-    border-top-color: rgba(215, 160, 205, 0.26);
-    border-left-color: rgba(215, 160, 205, 0.26);
-    border-bottom-color: rgba(215, 160, 205, 0.26);
-    border-right-color: rgba(215, 160, 205, 0.26);
+    border-color: rgba(215, 160, 205, 0.26);
     border-width: 10px;
     cursor: pointer;
 }
