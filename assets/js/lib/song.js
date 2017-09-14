@@ -14,7 +14,7 @@ session.on('ready', () => {
     }
 });
 
-document.getElementById('loading-image').src = require('../img/loading.png');
+document.getElementById('loading-image').src = require('../../img/loading.png');
 
 session.on('ready', () => {
     document.getElementById('loading').style.display = 'none';

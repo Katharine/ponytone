@@ -1,4 +1,13 @@
 {% extends 'karaoke/base.html' %}
+{% load render_bundle from webpack_loader %}
+
+{% block styles %}
+{% render_bundle 'index' 'css' %}
+{% endblock %}
+
+{% block scripts %}
+{% render_bundle 'index' 'js' %}
+{% endblock %}
 
 {% block content %}
     <h1>Ponytone</h1>

@@ -6,7 +6,8 @@ let ExtractTextPlugin = require('extract-text-webpack-plugin');
 module.exports = {
     context: __dirname,
     entry: {
-        'party': ['regenerator-runtime/runtime', './assets/js/index'],
+        'party': ['regenerator-runtime/runtime', './assets/js/party'],
+        'index': ['./assets/js/index'],
     },
     module: {
         rules: [
@@ -24,7 +25,7 @@ module.exports = {
     },
     plugins: [
         new BundleTracker({filename: './webpack-stats.json'}),
-        new ExtractTextPlugin("styles-[hash].css"),
+        new ExtractTextPlugin("[name]-[hash].css"),
     ],
     devtool: "sourcemap",
     output: {

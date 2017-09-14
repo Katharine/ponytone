@@ -1,0 +1,11 @@
+@import "font.css";
+
+h1 {
+    font-family: 'Slackey', sans-serif;
+    font-size: 60px;
+}
+
+h2 {
+    font-size: 35px;
+    margin: 0;
+}

@@ -1,4 +1,4 @@
-@import "font.css";
+@import "base.css";
 
 body {
     margin: 0;
@@ -258,16 +258,6 @@ button:active {
 
 #nick-container button {
     font-size: 40px;
-}
-
-h1 {
-    font-family: 'Slackey', sans-serif;
-    font-size: 60px;
-}
-
-h2 {
-    font-size: 35px;
-    margin: 0;
 }
 
 #queue-container h2 {
