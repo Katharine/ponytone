@@ -1,0 +1,27 @@
+{% extends 'karaoke/blurb.html' %}
+{% load render_bundle from webpack_loader %}
+{% load webpack_static from webpack_loader %}
+
+{% block styles %}
+{% render_bundle 'index' 'css' %}
+{% endblock %}
+
+{% block scripts %}
+{% render_bundle 'index' 'js' %}
+{% endblock %}
+
+{% block blurb %}
+    <div style="margin:70px; font-family: Ubuntu, sans-serif">
+        <p>Ponytone was created by Peach Hack, otherwise known as
+            <a href="https://twitter.com/KatharineBerry">Katharine Berry</a>.</p>
+        <p>Ponytone could not exist without the hard work of the
+            <a href="https://www.mylittlekaraoke.com">My Little Karaoke</a> team. All the note data was originally created
+        for My Little Karaoke.</p>
+        <p>Art from the following artists is used on this site:</p>
+        <ul>
+            <li><a href="https://masemj.deviantart.com/art/Ponytones-Quintet-434890368">Ponytones Quintet</a> by <a href="https://masemj.deviantart.com">masemj</a></li>
+            <li><a href="https://derpibooru.org/7603">Chrome poni</a> by he4rtofcourage</li>
+        </ul>
+        <p>And finally, thanks to all the musicians for the music featured in Ponytone.</p>
+    </div>
+{% endblock %}

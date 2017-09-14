@@ -5,6 +5,9 @@ body {
     padding: 0;
     background-color:#a8d9f1;
     font-family: 'Slackey', cursive;
+    font-size: 30px;
+    font-variant-ligatures: common-ligatures discretionary-ligatures contextual;
+    color:#8d5a97;
 }
 
 h1 {
@@ -107,7 +110,6 @@ header h2, a, a:visited, a:hover, a:active
     flex: 1;
     flex-grow: 0;
     max-width: 430pt;
-    color:#8d5a97;
     font-size: 35px;
 }
 
@@ -146,19 +148,21 @@ button {
     align-self: center;
 }
 
-#faq p{
-    padding:5pt 70pt;
-    padding-bottom: 10pt;
-    font-size: 30pt;
-    margin: 0;
-    color: #8d5a97;
-    font-family: 'Ubuntu', sans-serif;
+#faq {
+    padding-left: 70px;
+    font-size: 25pt;
 }
 
-#faq p:nth-of-type(odd){
+dt {
     color: #de6c83;
-    padding-bottom: 0;
+    padding-top: 5px;
     font-family: 'Slackey', cursive;
+}
+
+dd {
+    padding-top: 5px;
+    padding-bottom: 10px;
+    font-family: 'Ubuntu', sans-serif;
 }
 
 #overlay {
@@ -171,7 +175,6 @@ button {
 }
 
 #overlay .modal {
-    color:#8d5a97;
     width: 500px;
     height: 500px;
     margin: auto;
@@ -182,7 +185,6 @@ button {
     border-radius: 20px;
     border: #5d8fcd 3px solid;
     text-align: center;
-    font-size: 30px;
 }
 
 p.copylink {

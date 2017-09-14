@@ -1,11 +1,20 @@
 import Cookies from "js-cookie";
+import {isCompatible} from "./lib/compat";
 
 import css from "../css/index.css";
 import ponytones from "../img/ponytones.png";
 
 window.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('ponytone-image').src = ponytones;
-    document.getElementById('partybutton').onclick = () => createParty();
+    if (document.getElementById('ponytone-image')) {
+        document.getElementById('ponytone-image').src = ponytones;
+        if (isCompatible()) {
+            document.getElementById('partybutton').onclick = () => createParty();
+        } else {
+            document.getElementById('partybutton').parentNode.innerHTML = `
+            <p>Unfortunately, your browser is not supported. Try <a href="https://chrome.google.com">Google Chrome</a>.
+            `
+        }
+    }
 });
 
 async function createParty() {

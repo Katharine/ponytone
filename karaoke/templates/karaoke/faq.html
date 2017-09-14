@@ -1,0 +1,45 @@
+{% extends 'karaoke/blurb.html' %}
+{% load render_bundle from webpack_loader %}
+{% load webpack_static from webpack_loader %}
+
+{% block styles %}
+{% render_bundle 'index' 'css' %}
+{% endblock %}
+
+{% block scripts %}
+{% render_bundle 'index' 'js' %}
+{% endblock %}
+
+{% block blurb %}
+<div id="faq">
+    <dl>
+        <dt>Help, my voice is not being registered!</dt>
+        <dd>Make sure you have allowed this website to access your microphone. Also make sure you have installed the
+            latest verion of your browser and your microphone is being recognized in your system. If you continue
+            having problems, try <a href="https://chrome.google.com">Google Chrome</a>.</dd>
+
+        <dt>How can I say something to you?</dt>
+        <dd>Join the <a href="https://discord.gg/QGHdhSU" rel="nofollow">Ponytone Discord server</a> and yell at me (@katieberry#8560). I want to hear your feedback!</dd>
+
+        <dt>Why are you missing [feature]?</dt>
+        <dd>Ponytone is in early development! Let me know what you'd like to see.</dd>
+
+        <dt>Why don't you support my browser?</dt>
+        <dd>Ponytone uses several advanced web technologies, including WebRTC and Web Audio. Not all browsers
+            (especially, Internet Explorer, Edge, and Safari) have support for these features yet. If you are using
+            a browser you think should work, make sure your browser can play MP3s and MP4s properly.</dd>
+
+        <dt>How can I remove a song I accidentally added?</dt>
+        <dd>You can remove the song by singing it all the way through! — Sorry, but removal of selected songs is currently not yet implemented.</dd>
+
+        <dt>Where can I get the invite link after joining the party?</dt>
+        <dd>Select the url in the navigation bar and share that link with your friends. Then they can just join by visiting the link!</dd>
+
+        <dt>Is this not totally a ripoff of My Little Karaoke?</dt>
+        <dd>Absolutely! They <a href="https://twitter.com/MyLittleKaraoke/status/906864210809905154" target="_blank">seem pretty okay with it</a>.</dd>
+
+        <dt>Has anyone ever actually asked these questions?</dt>
+        <dd>Nope.</dd>
+    </dl>
+</div>
+{% endblock %}

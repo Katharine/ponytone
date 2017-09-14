@@ -55,6 +55,14 @@ def track_listing_tag(request):
     return f"lastsong-{Song.objects.latest('id').id}"
 
 
+def credits(request):
+    return render(request, "karaoke/credits.html")
+
+
+def faq(request):
+    return render(request, "karaoke/faq.html")
+
+
 @condition(etag_func=track_listing_tag)
 def track_listing(request):
     results = []
