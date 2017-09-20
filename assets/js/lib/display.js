@@ -229,9 +229,14 @@ export class GameDisplay extends EventEmitter {
         if (this.videoElement.src) {
             if (start >= 0) {
                 console.log("Video start time: ",start, this.videoElement.currentTime);
-                // this.videoElement.currentTime = start;
+                this.videoElement.currentTime = start;
                 this._canKillVideo = false;
-                await this.videoElement.play();
+                try {
+                    await this.videoElement.play();
+                } catch(e) {
+                    console.warn("Failed to start playing the video.");
+                    console.warn(e);
+                }
                 this._canKillVideo = true;
             } else {
                 console.log(`Delaying video playback by ${-start} seconds...`);
