@@ -145,6 +145,7 @@ export class GameDisplay extends EventEmitter {
         this.videoElement.style.top = 0;
         this.videoElement.style.left = 0;
         this._updateVideoSize();
+        this.videoElement.muted = "muted"; // Videos should never have an audio track, but some do; kill it.
         this.videoElement.preload = "auto";
         this.videoElement.poster = this.song.background;
         this.videoElement.addEventListener("canplaythrough", () => {
