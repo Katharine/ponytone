@@ -103,7 +103,7 @@ def store_song(connection, tar: tarfile.TarFile, song: SongInfo):
         with connection.cursor() as cur:
             stuff = song._asdict()
             if song.parts:
-                stuff['parts'] = psycopg2.extras.Json(song.parts)
+                stuff['parts'] = song.parts
             q = cur.execute("""
                 INSERT INTO karaoke_song (title, artist, transcriber, genre, updated, "language", "length",
                                           preview_start, song_year, is_mlk, cover_image, parts)
