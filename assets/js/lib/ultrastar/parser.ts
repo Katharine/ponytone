@@ -1,7 +1,51 @@
 "use strict";
 
+export interface SongMetadata {
+    title?: string;
+    cover?: string;
+    artist?: string;
+    creator?: string;
+    edition?: string;
+    language?: string;
+    genre?: string;
+    updated?: string;
+    comment?: string;
+}
+
+type NoteType = '#' | 'P' | ':' | '*' | 'F' | '-' | 'E';
+
+export interface Note {
+    type: NoteType;
+    beat: number;
+    pitch: number;
+    length: number;
+    text: string;
+}
+
+export interface NoteLine {
+    notes: Note[];
+    start: number;
+    end?: number;
+}
+
+type Part = NoteLine[];
+
 export class Song {
-    constructor(baseURL, text) {
+    baseURL: string;
+    metadata: SongMetadata;
+    bpm: number;
+    gap: number;
+    start: number;
+    end: number;
+    videogap: number;
+    parts: Part[];
+
+    private _mp3: string;
+    private _background: string;
+    private _video: string;
+
+
+    constructor(baseURL: string, text: string) {
         this.baseURL = baseURL;
         this.metadata = {};
         this.parts = [];
@@ -16,7 +60,7 @@ export class Song {
         this.parse(text);
     }
 
-    getLine(time, part) {
+    getLine(time: number, part?: number): SongLine {
         part = part || 0;
         let beat = this.msToBeats(time);
         if (beat < 0) {
@@ -40,7 +84,7 @@ export class Song {
         return null;
     }
 
-    getLineAtIndex(index, part) {
+    getLineAtIndex(index: number, part?: number): SongLine {
         let line = this.parts[part || 0][index];
         if (!line) {
             return null;
@@ -48,14 +92,14 @@ export class Song {
         return new SongLine(this, index, line);
     }
 
-    msToBeats(time) {
+    msToBeats(time: number): number {
         return Math.floor((((time - this.gap) / 60000) * this.bpm) * 4);
     }
 
-    parse(text) {
-        let lines = text.replace(/\r/g, "").split("\n");
-        let part = [];
-        let noteLine = {notes: [], start: 0};
+    parse(text: string): void {
+        let lines: string[] = text.replace(/\r/g, "") .split("\n");
+        let part: Part = [];
+        let noteLine: NoteLine = {notes: [], start: 0};
         for (let line of lines) {
             if (line.length === 0) {
                 continue;
@@ -93,24 +137,24 @@ export class Song {
         }
     }
 
-    _parseNote(line) {
+    _parseNote(line: string): Note {
         let content = line.split(' ', 4);
         let type = content[0];
         let [beat, length, pitch] = content.slice(1).map((x) => parseInt(x, 10));
         let text = line.substr(content.join(' ').length + 1);
-        return {type, beat, length, pitch, text}
+        return {type: <NoteType>type, beat, length, pitch, text}
     }
 
-    _parseNewLine(line) {
+    _parseNewLine(line: string): NoteLine {
         let [, start, end] = line.split(' ').map((x) => parseInt(x, 10));
-        let ret = {start, notes: []};
+        let ret: NoteLine = {start, notes: []};
         if (end) {
             ret.end = end;
         }
         return ret;
     }
 
-    _parseCommand(line) {
+    _parseCommand(line: string): void {
         let [command] = line.substr(1).split(":", 1);
         let value = line.substr(command.length + 2);
         switch (command.toUpperCase()) {
@@ -170,27 +214,31 @@ export class Song {
         }
     }
 
-    get mp3() {
+    get mp3(): string {
         return this.baseURL + '/' + this._mp3;
     }
 
-    get background() {
+    get background(): string {
         return this.baseURL + '/' + this._background;
     }
 
-    get video() {
+    get video(): string {
         return this._video ? this.baseURL + '/' + this._video : null;
     }
 }
 
 export class SongLine {
-    constructor(song, index, line) {
+    song: Song;
+    index: number;
+    line: NoteLine;
+
+    constructor(song: Song, index: number, line: NoteLine) {
         this.song = song;
         this.index = index;
         this.line = line;
     }
 
-    getNote(time) {
+    getNote(time: number): Note {
         let beats = this.song.msToBeats(time);
 
         for (let note of this.line.notes) {
@@ -201,7 +249,7 @@ export class SongLine {
         return null;
     }
 
-    getNoteNearBeat(beat) {
+    getNoteNearBeat(beat: number): Note {
         for (let i = this.line.notes.length - 1; i >= 0; --i) {
             let note = this.line.notes[i];
             if (beat >= note.beat) {
@@ -211,15 +259,15 @@ export class SongLine {
         return null;
     }
 
-    get notes() {
+    get notes(): Note[] {
         return this.line.notes;
     }
 
-    get start() {
+    get start(): number {
         return this.line.start;
     }
 
-    get end() {
+    get end(): number {
         return this.line.end || null;
     }
 }

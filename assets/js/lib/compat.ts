@@ -1,8 +1,6 @@
-"use strict";
-
 import {getAudioContext} from "./util/audio-context";
 
-export function isCompatible() {
+export function isCompatible(): boolean {
     try {
         if (!getAudioContext()) {
             console.error("No audio context.");
@@ -29,8 +27,8 @@ export function isCompatible() {
             return false;
         }
         try {
-            let p = getAudioContext().decodeAudioData(1);
-            if (!p instanceof Promise) {
+            let p = getAudioContext().decodeAudioData(<any>1); // intentional type violation to test error handling
+            if (!(p instanceof Promise)) {
                 console.error("decodeAudioData doesn't return a Promise.");
                 return false;
             }

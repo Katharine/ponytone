@@ -1,8 +1,17 @@
 import {turnAuth} from "page-data";
-import EventEmitter from "events";
+import {EventEmitter} from "events";
+import {NetworkSession} from "./comms";
 
 export class PeerConnection extends EventEmitter {
-    constructor(networkSession, peer) {
+    private peer: string;
+    private networkSession: NetworkSession;
+    private connection: RTCPeerConnection;
+    private dataStream: RTCDataChannel;
+    private dataAvailable: boolean;
+    private _pendingCandidates: RTCIceCandidate[];
+
+
+    constructor(networkSession: NetworkSession, peer: string) {
         super();
         this.networkSession = networkSession;
         this.peer = peer;
@@ -15,20 +24,20 @@ export class PeerConnection extends EventEmitter {
         this.on('ping', (message) => this._handlePing(message));
     }
 
-    connect() {
+    connect(): void {
         this._createConnection();
         this.dataStream = this.connection.createDataChannel(`p2p-${this.peer}`);
         this.dataStream.onopen = () => this._handleDataOpen();
         this.dataStream.onmessage = (e) => this._handleDataMessage(e.data);
     }
 
-    close() {
+    close(): void {
         if (this.connection) {
             this.connection.close();
         }
     }
 
-    testLatency(timeout) {
+    testLatency(timeout?: number): Promise<number> {
         timeout = timeout || 5000;
         return new Promise((resolve, reject) => {
             let timer = setTimeout(reject, timeout);
@@ -40,11 +49,19 @@ export class PeerConnection extends EventEmitter {
         });
     }
 
-    _handlePing(message) {
+    send(message: AnyMessage): void {
+        if (this.dataAvailable) {
+            this.dataStream.send(JSON.stringify(message));
+        } else {
+            throw new Error("Data stream not available yet.");
+        }
+    }
+
+    private _handlePing(message: {time: number}): void {
         this.send({action: "pong", time: message.time})
     }
 
-    async _receiveConnection(sdp) {
+    private async _receiveConnection(sdp: any): Promise<void> {
         try {
             this._createConnection();
             let desc = new RTCSessionDescription(sdp);
@@ -53,13 +70,13 @@ export class PeerConnection extends EventEmitter {
             await this.connection.setLocalDescription(answer);
 
             this.networkSession.relayTo(this.peer, {action: 'rtc-response', sdp: this.connection.localDescription});
-            this._processPendingCandidates();
+            await this._processPendingCandidates();
         } catch (e) {
             this._connectionEstablishmentError(e);
         }
     }
 
-    _handleRelayMessage(origin, message) {
+    private _handleRelayMessage(origin: string, message: ICEMessage): void {
         if (origin !== this.peer) {
             return;
         }
@@ -78,16 +95,16 @@ export class PeerConnection extends EventEmitter {
         }
     }
 
-    _processPendingCandidates() {
+    private async _processPendingCandidates(): Promise<void> {
         console.log('process pending candidates');
         for (let c of this._pendingCandidates) {
             console.log("Adding pending candidate...");
-            this.connection.addIceCandidate(c);
+            await this.connection.addIceCandidate(c);
         }
         this._pendingCandidates = null;
     }
 
-    _createConnection() {
+    private _createConnection(): void {
         this.connection = new RTCPeerConnection({
             iceServers: [{
                 urls: "turn:sfo.turn.ponytone.online",
@@ -100,10 +117,9 @@ export class PeerConnection extends EventEmitter {
         this.connection.onnegotiationneeded = () => this._performNegotiation();
         this.connection.ondatachannel = (e) => this._handleDataChannel(e.channel);
         this.connection.oniceconnectionstatechange = () => this._handleConnectionStateChange();
-        this.connection.onicesignallingstatechange = () => this._handleSignallingStateChange();
     }
 
-    _handleConnectionStateChange() {
+    private _handleConnectionStateChange(): void {
         console.log(`Connection state changed: ${this.connection.iceConnectionState}`);
         switch(this.connection.iceConnectionState) {
             case "failed":
@@ -116,14 +132,7 @@ export class PeerConnection extends EventEmitter {
         }
     }
 
-    _handleSignallingStateChange() {
-        console.log(`Signalling state changed: ${this.connection.signallingState}`);
-        if (this.connection.signallingState === "closed") {
-            this.emit("close");
-        }
-    }
-
-    async _performNegotiation() {
+    private async _performNegotiation(): Promise<void> {
         try {
             console.log('Initiating negotiation.');
             let offer = await this.connection.createOffer();
@@ -138,7 +147,7 @@ export class PeerConnection extends EventEmitter {
         }
     }
 
-    _handleICECandidate(e) {
+    private _handleICECandidate(e: RTCPeerConnectionIceEvent) {
         if (e.candidate) {
             this.networkSession.relayTo(this.peer, {
                 action: "new-ice-candidate",
@@ -147,36 +156,28 @@ export class PeerConnection extends EventEmitter {
         }
     }
 
-    _handleDataOpen() {
+    private _handleDataOpen(): void {
         console.log("Data stream available!");
         this.dataAvailable = true;
         this.emit("dataChannelAvailable");
     }
 
-    _handleDataMessage(data) {
+    private _handleDataMessage(data: string): void {
         console.log(`Got P2P data from ${this.peer}:`, data);
-        let parsed = JSON.parse(data);
+        let parsed = <Message>JSON.parse(data);
         let {action} = parsed;
         this.emit("data", action, parsed);
         this.emit(action, parsed);
     }
 
-    _handleDataChannel(stream) {
+    private _handleDataChannel(stream: RTCDataChannel): void {
         console.log('got a data channel', stream);
         this.dataStream = stream;
         this.dataStream.onopen = () => this._handleDataOpen();
         this.dataStream.onmessage = (e) => this._handleDataMessage(e.data);
     }
 
-    send(message) {
-        if (this.dataAvailable) {
-            this.dataStream.send(JSON.stringify(message));
-        } else {
-            throw new Error("Data stream not available yet.");
-        }
-    }
-
-    _handleInboundICECandidate(c) {
+    private _handleInboundICECandidate(c: RTCIceCandidate): void {
         console.log("ICE Candidate", c);
         let candidate = new RTCIceCandidate(c);
         if (this._pendingCandidates !== null) {
@@ -189,17 +190,17 @@ export class PeerConnection extends EventEmitter {
         }
     }
 
-    async _handleInboundDescription(sdp) {
+    private async _handleInboundDescription(sdp: any): Promise<void> {
         try {
             let desc = new RTCSessionDescription(sdp);
             await this.connection.setRemoteDescription(desc);
-            this._processPendingCandidates();
+            await this._processPendingCandidates();
         } catch (e) {
             this._connectionEstablishmentError(e);
         }
     }
 
-    _connectionEstablishmentError(e) {
+    private _connectionEstablishmentError(e: Error): void {
         console.error("RTC connection failed", e);
         this.emit("error", e);
     }

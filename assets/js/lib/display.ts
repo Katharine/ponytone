@@ -1,10 +1,39 @@
-"use strict";
-
 import {LyricRenderer, NoteRenderer, ProgressRenderer, ScoreRenderer, TitleRenderer} from "./ultrastar/render";
-import EventEmitter from "events";
+import {Song} from "./ultrastar/parser";
+import {EventEmitter} from "events";
+import {Player} from "./player";
+import {AudioPlayer} from "./game";
+
+interface Rect {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+}
 
 export class GameDisplay extends EventEmitter {
-    constructor(container, width, height, song, players, audio) {
+    private song: Song;
+    private container: HTMLElement;
+    private width: number;
+    private height: number;
+    private players: Player[];
+    private audio: AudioPlayer;
+    private div: HTMLDivElement;
+    private videoElement: HTMLVideoElement;
+    private canvasElement: HTMLCanvasElement;
+    private canvasContext: CanvasRenderingContext2D;
+    private _currentCanvasScale: number;
+    private progressRenderer: ProgressRenderer;
+    private lyricRenderers: LyricRenderer[];
+    private noteRenderers: NoteRenderer[];
+    private scoreRenderers: ScoreRenderer[];
+    private running: boolean;
+    private _ready: boolean;
+    private _scaleInterval: number;
+    private _gapTimer: number;
+    private _canKillVideo: boolean;
+
+    constructor(container: HTMLElement, width: number, height: number, song: Song, players: Player[], audio: AudioPlayer) {
         super();
         this.song = song;
         this.container = container;
@@ -31,7 +60,7 @@ export class GameDisplay extends EventEmitter {
         this.container.style.height = `${height}px`;
     }
 
-    setSize(width, height) {
+    setSize(width: number, height: number): void {
         this.width = width;
         this.height = height;
         this.container.style.width = `${width}px`;
@@ -41,12 +70,12 @@ export class GameDisplay extends EventEmitter {
         this.updateLayout();
     }
 
-    createGameLayout() {
+    createGameLayout(): void {
         console.log("players", this.players);
         this.canvasElement = document.createElement('canvas');
         this.canvasElement.style.position = 'absolute';
-        this.canvasElement.style.top = 0;
-        this.canvasElement.style.left = 0;
+        this.canvasElement.style.top = '0';
+        this.canvasElement.style.left = '0';
         this.canvasContext = this.canvasElement.getContext('2d');
         this._scaleCanvas();
 
@@ -82,16 +111,16 @@ export class GameDisplay extends EventEmitter {
         this.updateLayout();
     }
 
-    updateLayout() {
+    updateLayout(): void {
         const SCALE_W = 1280;
         const SCALE_H = 720;
         let cw = this.canvasElement.clientWidth;
         let ch = this.canvasElement.clientHeight;
 
-        let d = (x, y, w, h) => ({x: x / SCALE_W * cw, y: y / SCALE_H * ch, w: w / SCALE_W * cw, h: h / SCALE_H * ch});
+        let d = (x: number, y: number, w: number, h: number) => ({x: x / SCALE_W * cw, y: y / SCALE_H * ch, w: w / SCALE_W * cw, h: h / SCALE_H * ch});
 
         const LYRICS = [d(0, 610, 1280, 90.999), d(0, 0, 1280, 90)];
-        const LAYOUTS = {
+        const LAYOUTS: {[index: number]: {notes: Rect, score: Rect}[]} = {
             1: [{notes: d(20, 340, 1240, 250), score: d(0, 280, 1260, 60)}],
             2: [{notes: d(20, 390, 1240, 220), score: d(0, 350, 1260, 40)},
                 {notes: d(20, 130, 1240, 220), score: d(0, 90, 1260, 40)}],
@@ -139,13 +168,13 @@ export class GameDisplay extends EventEmitter {
         this._renderFrame(true);
     }
 
-    prepareVideo() {
+    prepareVideo(): void {
         this.videoElement = document.createElement('video');
         this.videoElement.style.position = 'absolute';
-        this.videoElement.style.top = 0;
-        this.videoElement.style.left = 0;
+        this.videoElement.style.top = '0';
+        this.videoElement.style.left = '0';
         this._updateVideoSize();
-        this.videoElement.muted = "muted"; // Videos should never have an audio track, but some do; kill it.
+        this.videoElement.muted = true; // Videos should never have an audio track, but some do; kill it.
         this.videoElement.preload = "auto";
         this.videoElement.poster = this.song.background;
         this.videoElement.addEventListener("canplaythrough", () => {
@@ -180,7 +209,7 @@ export class GameDisplay extends EventEmitter {
         }
     }
 
-    _updateVideoSize() {
+    private _updateVideoSize(): void {
         if (this.height > (this.width / 16*9)) {
             this.videoElement.height = this.height;
             this.videoElement.width = this.height / 9 * 16;
@@ -192,11 +221,11 @@ export class GameDisplay extends EventEmitter {
         this.videoElement.style.left = `${(this.width - this.videoElement.width) / 2}px`;
     }
 
-    get ready() {
+    get ready(): boolean {
         return this._ready;
     }
 
-    title() {
+    title(): Promise<void> {
         let titleRenderer = new TitleRenderer(this.canvasElement, this.song);
         this.videoElement.currentTime = 0;
         return new Promise((resolve) => {
@@ -210,7 +239,7 @@ export class GameDisplay extends EventEmitter {
                         requestAnimationFrame(fade);
                     }
                 };
-                setTimeout(() =>{
+                setTimeout(() => {
                     this.canvasContext.clearRect(0, 0, this.canvasElement.clientWidth, this.canvasElement.clientHeight);
                     resolve();
                 }, 667);
@@ -219,11 +248,11 @@ export class GameDisplay extends EventEmitter {
         });
     }
 
-    getVideoStartTime() {
+    getVideoStartTime(): number {
         return this.song.videogap + (this.song.start || 0);
     }
 
-    async start() {
+    async start(): Promise<void> {
         this.running = true;
         this.videoElement.currentTime = 0;
         let start = this.getVideoStartTime();
@@ -249,7 +278,7 @@ export class GameDisplay extends EventEmitter {
         requestAnimationFrame(() => this._renderFrame());
     }
 
-    stop() {
+    stop(): void {
         clearInterval(this._scaleInterval);
         clearTimeout(this._gapTimer);
         this.videoElement.pause();
@@ -259,7 +288,7 @@ export class GameDisplay extends EventEmitter {
         this.container.style.height = `unset`;
     }
 
-    _renderFrame(manual) {
+    private _renderFrame(manual?: boolean): void {
         if (!this.running) {
             return;
         }
@@ -296,7 +325,7 @@ export class GameDisplay extends EventEmitter {
         }
     }
 
-    _scaleCanvas(force) {
+    private _scaleCanvas(force?: boolean): void {
         // assume the device pixel ratio is 1 if the browser doesn't specify it
         const devicePixelRatio = window.devicePixelRatio || 1;
         if (!force && this._currentCanvasScale === devicePixelRatio) {

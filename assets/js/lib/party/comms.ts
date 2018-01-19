@@ -1,14 +1,26 @@
 import {WebSocketBridge} from "django-channels";
 import {PeerConnection} from './p2p';
 import {partyID} from 'page-data';
-import EventEmitter from "events";
+import {EventEmitter} from "events";
+
+export interface NetworkMember {
+    channel: string;
+    nick: string;
+    colour: string;
+}
 
 export class NetworkSession extends EventEmitter {
-    constructor(nick) {
+    nick: string;
+    channelName: string;
+    private rtcConnections: {[key: string]: PeerConnection};
+    private ws: WebSocketBridge;
+    party: {[key: string]: NetworkMember};
+
+    constructor(nick: string) {
         super();
         this.ws = new WebSocketBridge();
         this.ws.connect(`/karaoke/party/${partyID}`);
-        this.ws.listen((action, stream) => this._handleMessage(action, stream));
+        this.ws.listen((action) => this._handleMessage(action));
 
         this.nick = nick;
         this.channelName = null;
@@ -16,21 +28,45 @@ export class NetworkSession extends EventEmitter {
         this.party = {};
     }
 
-    relayTo(target, message) {
+    on(event: 'connected', listener: () => void): this;
+    on(event: 'disconnected', listener: () => void): this;
+    on(event: 'newMember', listener: (member: NetworkMember) => void): this;
+    on(event: 'gotMemberList', listener: (list: {[key: string]: {nick: string, colour: string}}) => void): this;
+    on(event: 'memberLeft', listener: (member: {nick: string, channel: string}) => void): this;
+    on(event: 'relayedMessage', listener: (origin: string, message: RelayedMessage) => void): this;
+    on(event: 'updatedPlaylist', listener: (playlist: number[]) => void): this;
+    on(event: 'connectionLost', listener: (peer: string) => void): this;
+    // events sent from other clients
+    on(event: 'dataChannelEstablished', listener: (peer: string) => void): this;
+    on(event: 'sangNotes', listener: (message: SangNotesMessage, peer: string) => void): this;
+    on(event: 'loadTrack', listener: (message: LoadTrackMessage, peer: string) => void): this;
+    on(event: 'readyToGo', listener: (message: ReadyMessage, peer: string) => void): this;
+    on(event: 'trackLoaded', listener: (message: TrackLoadedMessage, peer: string) => void): this;
+    on(event: 'startGame', listener: (message: StartGameMessage, peer: string) => void): this;
+    on(event: string, listener: (...args: any[]) => void): this {
+        return super.on(event, listener);
+    }
+
+    relayTo(target: string, message: any): void {
         this.ws.send({action: "relay", target: target, message: message})
     }
 
-    broadcast(message) {
+    broadcast(message: GameMessage): void {
         for (let connection of Object.values(this.rtcConnections)) {
             connection.send(message);
         }
     }
 
-    sendTo(target, message) {
+    sendTo(target: string, message: GameMessage): void {
         this.rtcConnection(target).send(message);
     }
 
-    _handleMessage(message, stream) {
+    sendToServer(message: WebsocketMessage): void {
+        this.ws.send(message);
+    }
+
+
+    private _handleMessage(message: WebsocketMessage): void {
         console.log(message);
         switch (message.action) {
             case "hello":
@@ -91,7 +127,7 @@ export class NetworkSession extends EventEmitter {
         }
     }
 
-    rtcConnection(peer) {
+    rtcConnection(peer: string): PeerConnection {
         if (!this.rtcConnections[peer]) {
             let connection = new PeerConnection(this, peer);
             connection.on('close', () => {
@@ -105,14 +141,12 @@ export class NetworkSession extends EventEmitter {
         return this.rtcConnections[peer];
     }
 
-    _newMember(member) {
-        this.party[member.channel] = {
-            nick: member.nick
-        }
+    _newMember(member: NetworkMember): void {
+        this.party[member.channel] = {...member};
     }
 
-    _establishConnection(message) {
-        let {nick, channel} = message;
+    _establishConnection(message: NewMemberMessage) {
+        let {channel} = message;
         let rtc = this.rtcConnection(channel);
         rtc.connect();
     }

@@ -1,13 +1,26 @@
-import {Party} from "./party/party";
+import {Party, PartyMember} from "./party/party";
 import {GameSession} from "./game";
 import {PartyList} from "./party/partylist";
 import {TrackList, TrackQueue} from "./tracklist";
 import {LocalPlayer, RemotePlayer} from "./player";
 import {Ready} from "./ready";
-import escapeHtml from "escape-html";
+import * as escapeHtml from "escape-html";
+import {SungNote} from "./audio/live";
 
 export class GameController {
-    constructor(nick, gameContainer, partyContainer) {
+    private gameContainer: HTMLElement;
+    private party: Party;
+    private trackList: TrackList;
+    private partyList: PartyList;
+    private trackQueue: TrackQueue;
+    private ready: Ready;
+    private session: GameSession;
+    private lastTransmittedBeat: number;
+    private beatTransmitInterval: number;
+    private remotePlayers: {[key: string]: RemotePlayer};
+    private loadingScreen: boolean;
+
+    constructor(nick: string, gameContainer: HTMLElement, partyContainer: HTMLElement) {
         this.gameContainer = gameContainer;
 
         this.party = new Party(nick);
@@ -35,13 +48,13 @@ export class GameController {
         window.addEventListener('resize', () => this._handleResize());
     }
 
-    _handleResize() {
+    private _handleResize(): void {
         if (this.session) {
             this.session.setSize(window.innerWidth, window.innerHeight);
         }
     }
 
-    _loadTrack(track) {
+    private _loadTrack(track: number): void {
         document.getElementById('loading').style.display = 'block';
         this.loadingScreen = true;
         this.session = new GameSession(this.gameContainer, window.innerWidth, window.innerHeight, `https://music.ponytone.online/${track}/notes.txt`);
@@ -52,14 +65,14 @@ export class GameController {
         this._updateLoadingList();
     }
 
-    _startGame() {
+    private _startGame(): void {
         document.getElementById('loading').style.display = 'none';
         this.loadingScreen = false;
         this.session.start();
         this.beatTransmitInterval = setInterval(() => this._transmitBeats(), 66);
     }
 
-    _transmitBeats() {
+    private _transmitBeats(): void {
         let notes = this.session.localPlayer.singing.notesInRange(this.lastTransmittedBeat + 1, Infinity);
         if (!notes.length) {
             return;
@@ -68,7 +81,7 @@ export class GameController {
         this.party.network.broadcast({action: "sangNotes", notes: notes, score: this.session.localPlayer.score});
     }
 
-    _receivedNotes(peer, score, notes) {
+    private _receivedNotes(peer: string, score: number, notes: SungNote[]) {
         let player = this.remotePlayers[peer];
         if (!player) {
             return;
@@ -77,10 +90,10 @@ export class GameController {
         player.addNotes(notes);
     }
 
-    _handleTrackLoaded() {
+    private _handleTrackLoaded(): void {
         let keys = Object.keys(this.party.party);
         keys.sort();
-        for (let [peer, member] of keys.map((k) => [k, this.party.party[k]])) {
+        for (let [peer, member] of keys.map((k) => <[string, PartyMember]>[k, this.party.party[k]])) {
             if (member.me) {
                 let player = new LocalPlayer(member.nick, member.colour, this.session.song, member.part, this.session);
                 this.session.addPlayer(player);
@@ -95,14 +108,14 @@ export class GameController {
         this.party.trackDidLoad();
     }
 
-    _updatePartyList() {
+    private _updatePartyList(): void {
         this.partyList.update();
         if (this.loadingScreen) {
             this._updateLoadingList();
         }
     }
 
-    _updateLoadingList() {
+    private _updateLoadingList(): void {
         let waiting = [];
         for (let member of Object.values(this.party.sessionParty)) {
             if (!member.loaded) {
@@ -112,11 +125,11 @@ export class GameController {
         document.getElementById('loading-list').innerHTML = waiting.map(escapeHtml).join('<br>');
     }
 
-    _updatePlaylist(playlist) {
+    private _updatePlaylist(playlist: number[]): void {
         this.trackQueue.updateQueue(playlist);
     }
 
-    _handleTrackFinished() {
+    private _handleTrackFinished(): void {
         this._transmitBeats();
         this.party.me.score = this.session.localPlayer.score;
         clearInterval(this.beatTransmitInterval);
@@ -128,12 +141,12 @@ export class GameController {
         this.ready.reset();
     }
 
-    _addSong(song) {
+    private _addSong(song: number): void {
         console.log(`Adding ${song} to the queue...`);
         this.party.addToPlaylist(song);
     }
 
-    _handleReady(part) {
+    private _handleReady(part: number): void {
         this.party.setReady(part);
     }
 }

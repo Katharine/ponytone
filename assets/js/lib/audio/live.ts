@@ -1,6 +1,7 @@
-import {getNoteFromBuffer} from "./pitch";
+import {getNoteFromBuffer, Note} from "./pitch";
 import {getAudioContext} from "../util/audio-context";
-import EventEmitter from "events";
+import {Song} from "../ultrastar/parser";
+import {EventEmitter} from "events";
 
 
 const SAMPLES_PER_BUFFER = 1024;
@@ -8,6 +9,18 @@ const BUFFERS_REQUIRED = 1;  // I'm not convinced this works properly when > 1
 const TOTAL_SAMPLES = SAMPLES_PER_BUFFER * BUFFERS_REQUIRED;
 
 export class LiveAudio extends EventEmitter {
+    ready: boolean;
+    onnote: (note: Note) => void;
+    source: MediaStreamAudioSourceNode;
+
+    private context: AudioContext;
+    private analyser: ScriptProcessorNode;
+    private biquad: BiquadFilterNode;
+    private dummy: AnalyserNode;
+    private gain: GainNode;
+    private stream: MediaStream;
+    private _buffers: Float32Array[];
+
     constructor() {
         super();
         this.ready = false;
@@ -27,23 +40,23 @@ export class LiveAudio extends EventEmitter {
         this._getMedia();
     }
 
-    async _getMedia() {
+    private async _getMedia(): Promise<void> {
         try {
             this.stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false,
-                    googAutoGainControl: false,
-                    mozAutoGainControl: false,
-                    googNoiseSuppression: false,
-                    mozNoiseSuppression: false,
+                    // echoCancellation: false,
+                    // noiseSuppression: false,
+                    // autoGainControl: false,
+                    // googAutoGainControl: false,
+                    // mozAutoGainControl: false,
+                    // googNoiseSuppression: false,
+                    // mozNoiseSuppression: false,
                 }
             });
         } catch (e) {
             this.ready = false;
             console.error("Media failed.");
-            console.log(err);
+            console.log(e);
             this.emit("failed");
         }
 
@@ -55,7 +68,7 @@ export class LiveAudio extends EventEmitter {
         this.ready = true;
     }
 
-    _processAudio(e) {
+    _processAudio(e: AudioProcessingEvent): void {
         let buffer = e.inputBuffer.getChannelData(0);
         if (this._buffers.length >= BUFFERS_REQUIRED) {
             this._buffers.shift();
@@ -78,7 +91,7 @@ export class LiveAudio extends EventEmitter {
         }
     }
 
-    static isAudioAvailable() {
+    static isAudioAvailable(): boolean {
         if (!(window.AudioContext || window.webkitAudioContext)) {
             return false;
         }
@@ -88,38 +101,54 @@ export class LiveAudio extends EventEmitter {
         return true;
     }
 
-    static requestPermissions() {
+    static requestPermissions(): void {
         navigator.mediaDevices.getUserMedia({audio: true});
     }
 }
 
+export interface AudioTrack {
+    currentTime: number;
+}
+
+export interface SungNote {
+    time: number;
+    note: number;
+}
+
 export class Singing {
-    constructor(song, audio) {
+    song: Song;
+    audio: LiveAudio;
+    track: AudioTrack;
+    notes: SungNote[];
+    currentBeat: number;
+    samples: number;
+    average: number;
+
+    constructor(song: Song, audio: AudioTrack) {
         this.song = song;
         this.audio = new LiveAudio();
         this.track = audio;
-        this.interval = null;
         this.notes = [];
         this.currentBeat = -1;
         this.samples = 0;
         this.average = 0;
     }
 
-    start() {
+    start(): void {
         this.currentBeat = -1;
         this.samples = 0;
         this.average = 0;
         this.audio.onnote = (note) => this._addNote(note);
     }
 
-    stop() {
+    stop(): void {
         this.audio.onnote = null;
         if (this.audio.source) {
             this.audio.source.disconnect();
         }
     }
 
-    _addNote(note) {
+    _addNote(note: Note): void {
         let beat = this.song.msToBeats((this.track.currentTime*1000)|0) - 2;
         if (beat < 0 || beat <= this.currentBeat) {
             return;
@@ -138,11 +167,11 @@ export class Singing {
         }
     }
 
-    notesInRange(start, end) {
+    notesInRange(start: number, end: number): SungNote[] {
         return this.notes.filter((x) => start <= x.time && x.time < end);
     }
 
     get ready() {
-        return audio.ready;
+        return this.audio.ready;
     }
 }

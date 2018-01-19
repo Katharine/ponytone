@@ -1,8 +1,26 @@
-"use strict";
-import {Singing} from "./audio/live";
+import {Singing, AudioTrack, SungNote} from "./audio/live";
+import {Song} from "./ultrastar/parser";
 
-export class LocalPlayer {
-    constructor(nick, colour, song, part, audio) {
+export interface Player {
+    readonly nick: string;
+    readonly colour: string;
+    readonly score: number;
+    readonly part: number;
+
+    start(): void;
+    stop(): void;
+    notesInRange(start: number, end: number): SungNote[];
+}
+
+export class LocalPlayer implements Player {
+    nick: string;
+    colour: string;
+    song: Song;
+    part: number;
+    singing: Singing;
+    audio: AudioTrack;
+
+    constructor(nick: string, colour: string, song: Song, part: number, audio: AudioTrack) {
         this.nick = nick;
         this.colour = colour;
         this.song = song;
@@ -11,27 +29,27 @@ export class LocalPlayer {
         this.audio = audio;
     }
 
-    setSong(song) {
+    setSong(song: Song): void {
         this.song = song;
     }
 
-    prepare() {
+    prepare(): void {
         this.singing = new Singing(this.song, this.audio);
     }
 
-    start() {
+    start(): void {
         this.singing.start();
     }
 
-    stop() {
+    stop(): void {
         this.singing.stop();
     }
 
-    notesInRange(start, end) {
+    notesInRange(start: number, end: number): SungNote[] {
         return this.singing.notesInRange(start, end);
     }
 
-    get score() {
+    get score(): number {
         let part = this.song.parts[this.part];
         let expected = part.map((x) => x.notes).reduce((a, c) => a.concat(c), []);
         let actual = this.singing.notes;
@@ -59,8 +77,14 @@ export class LocalPlayer {
     }
 }
 
-export class RemotePlayer {
-    constructor(nick, colour, part) {
+export class RemotePlayer implements Player {
+    nick: string;
+    colour: string;
+    score: number;
+    notes: SungNote[];
+    part: number;
+
+    constructor(nick: string, colour: string, part: number) {
         this.nick = nick;
         this.colour = colour;
         this.score = 0;
@@ -68,19 +92,19 @@ export class RemotePlayer {
         this.part = part || 0;
     }
 
-    start() {
+    start(): void {
 
     }
 
-    stop() {
+    stop(): void {
 
     }
 
-    addNotes(notes) {
+    addNotes(notes: SungNote[]): void {
         this.notes.push(...notes);
     }
 
-    notesInRange(start, end) {
+    notesInRange(start: number, end: number): SungNote[] {
         return this.notes.filter((x) => start <= x.time && x.time < end);
     }
 }
