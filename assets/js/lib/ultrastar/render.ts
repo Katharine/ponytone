@@ -2,6 +2,7 @@ import * as Colour from 'color';
 import {Song, SongLine} from "./parser";
 import {Player} from "../player";
 import {AudioPlayer} from "../game";
+import {Note} from "./parser";
 
 const LYRIC_BACKGROUND_COLOUR = 'rgba(50, 50, 50, 0.8)';
 const FONT = 'Ubuntu, sans-serif';
@@ -124,6 +125,14 @@ interface LineMetric {
     lineEndBeat: number;
 }
 
+const GOLDEN_NOTE_COLOUR = '#e0b61b';
+const colour = new Colour(GOLDEN_NOTE_COLOUR);
+
+const GOLDEN_NOTE_OUTLINE_COLOUR = colour.darken(0.1).fade(0.1).string();
+const GOLDEN_NOTE_INNER_COLOUR = colour.lighten(0.3).desaturate(0.5).hex();
+const GOLDEN_NOTE_SING_COLOUR = colour.lighten(0.4).hex();
+const GOLDEN_NOTE_SING_OUTLINE_COLOUR = Colour(GOLDEN_NOTE_SING_COLOUR).darken(0.6).hex();
+
 export class NoteRenderer {
     private canvas: HTMLCanvasElement;
     private context: CanvasRenderingContext2D;
@@ -201,8 +210,8 @@ export class NoteRenderer {
                 continue;
             }
             let renderLine = (note.pitch - lowestNote + 4) % 18;
-
-            this.renderLine(line, renderLine, note.beat, note.beat + note.length, this.innerColour, this.outlineColour, 1);
+            let isGold = note.type == '*';
+            this.renderLine(line, renderLine, note.beat, note.beat + note.length, isGold ? GOLDEN_NOTE_INNER_COLOUR : this.innerColour, isGold ? GOLDEN_NOTE_OUTLINE_COLOUR : this.outlineColour, 1);
         }
 
         if (this.player) {
@@ -211,6 +220,7 @@ export class NoteRenderer {
             let lastEnd: number = null;
             let lastWasMatching : boolean = null;
             let lastActualStartBeat: number = null;
+            let lastNote: Note = null;
             for (let note of this.player.notesInRange(startBeat, endBeat)) {
                 let beat = note.time;
                 let actual = line.getNoteNearBeat(beat);
@@ -241,19 +251,24 @@ export class NoteRenderer {
                 }
                 // now we have to render the *previous* note
                 let ratio = lastWasMatching ? EXPECTED_NOTE_INNER_RATIO : BAD_NOTE_RATIO;
-                this.renderLine(line, lastLine, lastStart, lastEnd, this.singColour, this.singOutlineColour, ratio);
-
+                if (lastNote) {
+                    let lastWasGold = lastWasMatching && lastNote.type == '*';
+                    this.renderLine(line, lastLine, lastStart, lastEnd, lastWasGold ? GOLDEN_NOTE_SING_COLOUR : this.singColour, lastWasGold ? GOLDEN_NOTE_SING_OUTLINE_COLOUR : this.singOutlineColour, ratio);
+                }
+                
                 // Update what 'previous' means.
                 lastStart = beat;
                 lastEnd = beat;
                 lastLine = renderLine;
                 lastWasMatching = matchingNote;
                 lastActualStartBeat = actual.beat;
+                lastNote = actual;
             }
 
             if (lastLine !== null) {
                 let ratio = lastWasMatching ? EXPECTED_NOTE_INNER_RATIO : BAD_NOTE_RATIO;
-                this.renderLine(line, lastLine, lastStart, lastEnd, this.singColour, this.singOutlineColour, ratio);
+                let lastWasGold = lastWasMatching && lastNote.type == '*';
+                this.renderLine(line, lastLine, lastStart, lastEnd, lastWasGold ? GOLDEN_NOTE_SING_COLOUR : this.singColour, lastWasGold ? GOLDEN_NOTE_SING_OUTLINE_COLOUR : this.singOutlineColour, ratio);
             }
         }
     }

@@ -17,15 +17,15 @@ export class LocalPlayer implements Player {
     colour: string;
     song: Song;
     part: number;
-    singing: Singing;
+    singing: Singing = null;
     audio: AudioTrack;
+    private _scorePerBeat: number = null;
 
     constructor(nick: string, colour: string, song: Song, part: number, audio: AudioTrack) {
         this.nick = nick;
         this.colour = colour;
         this.song = song;
         this.part = part;
-        this.singing = null;
         this.audio = audio;
     }
 
@@ -49,13 +49,24 @@ export class LocalPlayer implements Player {
         return this.singing.notesInRange(start, end);
     }
 
+    private get scorePerBeat(): number {
+        if (this._scorePerBeat === null) {
+            let part = this.song.parts[this.part];
+            let expected = part.map((x) => x.notes).reduce((a, c) => a.concat(c), []);
+            let actual = this.singing.notes;
+            let i = 0;
+            let totalBeats = expected.filter((x) => x.type !== 'F').reduce((a, v) => a + (v.type == '*' ? 2 : 1) * v.length, 0);
+            this._scorePerBeat = 10000 / totalBeats;
+        }
+        return this._scorePerBeat;
+    }
+
     get score(): number {
         let part = this.song.parts[this.part];
         let expected = part.map((x) => x.notes).reduce((a, c) => a.concat(c), []);
         let actual = this.singing.notes;
         let i = 0;
-        let totalBeats = expected.filter((x) => x.type !== 'F').reduce((a, v) => a + v.length, 0);
-        let scorePerBeat = 10000 / totalBeats;
+        let scorePerBeat = this.scorePerBeat;
         let score = 0;
         for(let note of expected) {
             if (note.type === 'F') {
@@ -68,7 +79,7 @@ export class LocalPlayer implements Player {
                 }
                 let diff = Math.abs((actual[i].note % 12) - (note.pitch % 12));
                 if (diff <= 1 || diff >= 11) {
-                    score += scorePerBeat;
+                    score += scorePerBeat * (note.type == '*' ? 2 : 1);
                 }
                 ++i;
             }
