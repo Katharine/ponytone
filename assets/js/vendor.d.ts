@@ -68,7 +68,7 @@ declare module "reconnecting-websocket" {
         binaryType?: 'blob' | 'arraybuffer';
     }
 
-    interface ReconnectingWebSocket extends WebSocket {
+    class ReconnectingWebSocket extends WebSocket {
         constructor(url: string, protocols?: string | string[], options?: ReconnectingWebSocketOptions);
     }
 }
