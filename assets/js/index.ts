@@ -2,7 +2,7 @@ import * as Cookies from "js-cookie";
 import {isCompatible} from "./lib/compat";
 
 import "../css/index.css";
-import ponytones from "../img/ponytones.png";
+import * as ponytones from "../img/ponytones.png";
 
 window.addEventListener('DOMContentLoaded', () => {
     let img = <HTMLImageElement>document.getElementById('ponytone-image');

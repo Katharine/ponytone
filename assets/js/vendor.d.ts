@@ -127,10 +127,10 @@ declare module "page-data" {
 
 declare module "*.css" {
     const css: string;
-    export default css;
+    export = css;
 }
 
 declare module "*.png" {
     const png: string;
-    export default png;
+    export = png;
 }
