@@ -46,15 +46,15 @@ export class LiveAudio extends EventEmitter {
 
     private async _getMedia(): Promise<void> {
         try {
-            this.stream = await navigator.mediaDevices.getUserMedia({
+            this.stream = await navigator.mediaDevices.getUserMedia(<any>{
                 audio: {
-                    // echoCancellation: false,
-                    // noiseSuppression: false,
-                    // autoGainControl: false,
-                    // googAutoGainControl: false,
-                    // mozAutoGainControl: false,
-                    // googNoiseSuppression: false,
-                    // mozNoiseSuppression: false,
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                    googAutoGainControl: false,
+                    mozAutoGainControl: false,
+                    googNoiseSuppression: false,
+                    mozNoiseSuppression: false,
                 }
             });
         } catch (e) {
