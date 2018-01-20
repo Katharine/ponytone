@@ -11,13 +11,6 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/color": "^2.0.0",
-    "@types/escape-html": "^0.0.20",
-    "@types/js-cookie": "^2.1.0",
-    "@types/webrtc": "^0.0.22",
-    "ts-loader": "^3.2.0",
-    "typescript": "^2.6.2",
-    "uglifyjs-webpack-plugin": "^1.1.6"
   },
   "dependencies": {
     "clusterize.js": "^0.17.6",
@@ -33,7 +26,14 @@
     "style-loader": "^0.18.2",
     "webpack": "^3.5.5",
     "webpack-bundle-tracker": "^0.2.0",
-    "webpack-dev-server": "^2.7.1"
+    "webpack-dev-server": "^2.7.1",
+    "@types/color": "^2.0.0",
+    "@types/escape-html": "^0.0.20",
+    "@types/js-cookie": "^2.1.0",
+    "@types/webrtc": "^0.0.22",
+    "ts-loader": "^3.2.0",
+    "typescript": "^2.6.2",
+    "uglifyjs-webpack-plugin": "^1.1.6"
   },
   "engines": {
     "node": "9.4.0",
