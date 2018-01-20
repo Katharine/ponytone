@@ -1,8 +1,8 @@
-let _audioContext = null;
+let _audioContext: AudioContext = null;
 
-export function getAudioContext() {
+export function getAudioContext(): AudioContext {
     if (!_audioContext) {
-        let AC = (window.AudioContext || window.webkitAudioContext);
+        let AC: any = (window.AudioContext || window.webkitAudioContext);
         if (!AC) {
             return null;
         } else {

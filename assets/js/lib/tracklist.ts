@@ -1,8 +1,21 @@
 "use strict";
-import Clusterize from 'clusterize.js';
-import EventEmitter from "events";
+import * as Clusterize from 'clusterize.js';
+import {EventEmitter} from "events";
 
-function formatDuration(seconds) {
+export interface SongIndexEntry {
+    id: number;
+    title: string;
+    artist: string;
+    length: number;
+    cover: string;
+    duet?: string[];
+}
+
+export interface SongIndexMap {
+    [key: number]: SongIndexEntry;
+}
+
+function formatDuration(seconds: number): string {
     let minutes = '' + ((seconds/60)|0);
     let secs = '' + ((seconds % 60)|0);
     if (secs.length === 1) {
@@ -11,7 +24,7 @@ function formatDuration(seconds) {
     return `${minutes}:${secs}`;
 }
 
-function renderSong(songInfo) {
+function renderSong(songInfo: SongIndexEntry): string {
     return `<li data-song="${songInfo.id}">
         <img src="//music.ponytone.online/${songInfo.id}/${songInfo.cover}">
         <span class="song-title">${songInfo.title}</span>
@@ -21,14 +34,13 @@ function renderSong(songInfo) {
 }
 
 
-let _songData = null;
-let _songMapData = null;
+let _songData: SongIndexEntry[] = null;
+let _songMapData: SongIndexMap = null;
 
-export async function getSongData(search) {
+export async function getSongData(search?: string): Promise<SongIndexEntry[]> {
     if (!_songData) {
         let result = await fetch("/tracklist");
-        let json = await result.json();
-        _songData = json;
+        _songData = await result.json();
         _songData.sort((a, b) => {
             if (a.artist.toLowerCase() < b.artist.toLowerCase()) {
                 return -1;
@@ -54,12 +66,12 @@ export async function getSongData(search) {
     return _songData.filter((x) => x.title.toLowerCase().includes(search) || x.artist.toLowerCase().includes(search));
 }
 
-export async function getSongMap() {
+export async function getSongMap(): Promise<SongIndexMap> {
     if (_songMapData) {
         return _songMapData;
     }
 
-    let result = {};
+    let result: SongIndexMap = {};
     for (let song of await getSongData()) {
         result[song.id] = song;
     }
@@ -67,7 +79,14 @@ export async function getSongMap() {
 }
 
 export class TrackList extends EventEmitter {
-    constructor(container) {
+    private container: HTMLElement;
+    private filterDiv: HTMLDivElement;
+    private listContainer: HTMLDivElement;
+    private searchInput: HTMLInputElement;
+    private ul: HTMLUListElement;
+    private cluster: Clusterize;
+
+    constructor(container: HTMLElement) {
         super();
         this.container = container;
         this.filterDiv = document.createElement('div');
@@ -94,27 +113,35 @@ export class TrackList extends EventEmitter {
             rows_in_block: 30,
             blocks_in_cluster: 2,
         });
-        window.cluster = this.cluster;
 
         this._handleFilter();
     }
 
-    _handleClick(e) {
-        if (!e.target.dataset.song) {
-            return;
-        }
-        console.log(e.target.dataset.song);
-        this.emit('songPicked', parseInt(e.target.dataset.song, 10));
+    on(event: 'songPicked', listener: (song: number) => any): this {
+        return super.on(event, listener);
     }
 
-    async _handleFilter() {
+    private _handleClick(e: MouseEvent): void {
+        let target = <HTMLElement>e.target;
+        if (!target.dataset.song) {
+            return;
+        }
+        console.log(target.dataset.song);
+        this.emit('songPicked', parseInt(target.dataset.song, 10));
+    }
+
+    private async _handleFilter(): Promise<void> {
         let songs = await getSongData(this.searchInput.value);
         this.cluster.update(songs.map(renderSong));
     }
 }
 
 export class TrackQueue {
-    constructor(container) {
+    private container: HTMLElement;
+    private ul: HTMLUListElement;
+    private cluster: Clusterize;
+
+    constructor(container: HTMLElement) {
         this.container = container;
         this.ul = document.createElement('ul');
         this.container.innerHTML = '';
@@ -128,10 +155,9 @@ export class TrackQueue {
             no_data_text: "Random!",
             no_data_class: "track-queue-empty",
         });
-        window.cluster = this.cluster;
     }
 
-    async updateQueue(playlist) {
+    async updateQueue(playlist: number[]): Promise<void> {
         let map = await getSongMap();
         this.cluster.update(playlist.map((i) => renderSong(map[i])));
     }

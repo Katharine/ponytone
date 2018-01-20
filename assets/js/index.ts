@@ -1,16 +1,17 @@
-import Cookies from "js-cookie";
+import * as Cookies from "js-cookie";
 import {isCompatible} from "./lib/compat";
 
-import css from "../css/index.css";
+import "../css/index.css";
 import ponytones from "../img/ponytones.png";
 
 window.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('ponytone-image')) {
-        document.getElementById('ponytone-image').src = ponytones;
+    let img = <HTMLImageElement>document.getElementById('ponytone-image');
+    if (img) {
+        img.src = ponytones;
         if (isCompatible()) {
             document.getElementById('partybutton').onclick = () => createParty();
         } else {
-            document.getElementById('partybutton').parentNode.innerHTML = `
+            (<HTMLElement>document.getElementById('partybutton').parentNode).innerHTML = `
             <p>Unfortunately, your browser is not supported. Try <a href="https://chrome.google.com">Google Chrome</a>.
             `
         }
@@ -25,7 +26,7 @@ async function createParty() {
     });
     let text = await request.text();
     document.getElementById('overlay').style.display = 'block';
-    let a = document.getElementById('targetlink');
+    let a = <HTMLAnchorElement>document.getElementById('targetlink');
     a.href += text;
     a.innerHTML += text;
     document.getElementById('beginbutton').onclick = () => location.href = a.href;

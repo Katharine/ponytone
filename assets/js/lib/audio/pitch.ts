@@ -3,7 +3,14 @@
 const MIN_RMS = 0.01;
 const GOOD_ENOUGH_CORRELATION = 0.9; // this is the "bar" for how close a correlation needs to be
 
-function autoCorrelate(buffer, sampleRate) {
+export interface Note {
+    freq: number;
+    number: number;
+    name: string;
+    offset: number;
+}
+
+function autoCorrelate(buffer: Float32Array, sampleRate: number): number {
     // Keep track of best period/correlation
     let bestPeriod = 0;
     let bestCorrelation = 0;
@@ -42,7 +49,7 @@ function autoCorrelate(buffer, sampleRate) {
 
     // Abort if not enough signal
     if (rms < MIN_RMS) {
-        return false;
+        return null;
     }
 
     /**
@@ -145,26 +152,26 @@ function autoCorrelate(buffer, sampleRate) {
 }
 
 
-let noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-function noteNumberFromPitch(frequency) {
+function noteNumberFromPitch(frequency: number): number {
     let noteNum = 12 * (Math.log(frequency / 440)/Math.log(2));
     return Math.round(noteNum) + 69;
 }
 
-function noteNameFromNumber(number) {
+function noteNameFromNumber(number: number): string {
     return noteStrings[number % 12];
 }
 
-function frequencyFromNoteNumber( note ) {
+function frequencyFromNoteNumber(note: number): number {
     return 440 * Math.pow(2,(note-69)/12);
 }
 
-function centsOffFromPitch(frequency, note) {
+function centsOffFromPitch(frequency: number, note: number): number {
     return Math.floor(1200 * Math.log(frequency / frequencyFromNoteNumber(note))/Math.log(2));
 }
 
-export function getNoteFromBuffer(buffer, sampleRate) {
+export function getNoteFromBuffer(buffer: Float32Array, sampleRate: number): Note {
     let freq = autoCorrelate(buffer, sampleRate);
     if (!freq) {
         return {freq: null, number: null, name: null, offset: null};

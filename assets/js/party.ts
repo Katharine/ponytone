@@ -1,11 +1,9 @@
-"use strict";
-import {partyID} from 'page-data';
 import {NickPrompt} from "./lib/party/nick"
 import {syncTime} from "./lib/util/ntp";
 import {GameController} from "./lib/controller";
 import {isCompatible} from "./lib/compat";
 
-import css from "../css/party.css";
+import "../css/party.css";
 
 if (!isCompatible()) {
     document.getElementById('unsupported-browser').style.display = 'block';
@@ -23,5 +21,3 @@ if (!isCompatible()) {
         setTimeout(syncTime, 1000);
     });
 }
-
-

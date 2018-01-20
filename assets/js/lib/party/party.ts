@@ -1,6 +1,6 @@
 import {NetworkSession} from "./comms";
 import {fixedTimestamp} from "../util/ntp";
-import EventEmitter from "events";
+import {EventEmitter} from "events";
 
 // sequence:
 // 1) everyone joins
@@ -12,8 +12,31 @@ import EventEmitter from "events";
 // 7) game starts
 // 8) song completes; return to 3
 
+export interface PartyMember {
+    nick: string;
+    colour: string;
+    data: boolean;
+    ping: number;
+    ready: boolean;
+    me: boolean;
+    loaded: boolean;
+    score: number;
+    part: number;
+}
+
+interface PartyMap {
+    [key: string]: PartyMember;
+}
+
 export class Party extends EventEmitter {
-    constructor(nick) {
+    nick: string;
+    party: PartyMap;
+    sessionParty: PartyMap;
+    queue: number[];
+    playing: boolean;
+    network: NetworkSession;
+
+    constructor(nick: string) {
         super();
         this.nick = nick;
         this.party = {};
@@ -26,14 +49,22 @@ export class Party extends EventEmitter {
         this.network.on('memberLeft', (member) => this._handleMemberLeft(member));
         this.network.on('readyToGo', (message, peer) => this._handleReady(peer, message.part));
         this.network.on('dataChannelEstablished', (peer) => this._handleDataReady(peer));
-        this.network.on('startGame', (message, peer) => this._handleStartGame(message.time));
-        this.network.on('loadTrack', (message, peer) => this._handleLoadTrack(message.track));
+        this.network.on('startGame', (message) => this._handleStartGame(message.time));
+        this.network.on('loadTrack', (message) => this._handleLoadTrack(message.track));
         this.network.on('trackLoaded', (message, peer) => this._handleTrackLoaded(peer));
         this.network.on('updatedPlaylist', (songs) => this._handleUpdatedPlaylist(songs));
         this.network.on('sangNotes', (message, peer) => this._updateScore(peer, message.score));
     }
 
-    _makeMember(nick, colour) {
+    on(event: 'startGame', listener: (delay: number) => any): this;
+    on(event: 'partyUpdated', listener: () => any): this;
+    on(event: 'loadTrack', listener: (track: number) => any): this;
+    on(event: 'updatedPlaylist', listener: (songs: number[]) => any): this;
+    on(event: string, listener: (...args: any[]) => any): this {
+        return super.on(event, listener);
+    }
+
+    _makeMember(nick: string, colour: string): PartyMember {
         return {
             nick: nick,
             colour: colour,
@@ -47,11 +78,11 @@ export class Party extends EventEmitter {
         }
     }
 
-    _updateScore(peer, score) {
+    _updateScore(peer: string, score: number): void {
         this.party[peer].score = score;
     }
 
-    _handleMemberList(members) {
+    _handleMemberList(members: {[key: string]: {nick: string, colour: string}}): void {
         this.party = {};
         for (let [channel, {nick, colour}] of Object.entries(members)) {
             this.party[channel] = this._makeMember(nick, colour);
@@ -62,7 +93,7 @@ export class Party extends EventEmitter {
         this.emit('partyUpdated');
     }
 
-    _handleNewMember(member) {
+    _handleNewMember(member: {nick: string, colour: string, channel: string}): void {
         this.party[member.channel] = this._makeMember(member.nick, member.colour);
         if (this.network.channelName === member.channel) {
             this.party[member.channel].me = true;
@@ -70,7 +101,7 @@ export class Party extends EventEmitter {
         this.emit('partyUpdated');
     }
 
-    _handleMemberLeft(member) {
+    _handleMemberLeft(member: {nick: string, channel: string}) {
         delete this.party[member.channel];
         if (this.sessionParty) {
             delete this.sessionParty[member.channel];
@@ -81,14 +112,14 @@ export class Party extends EventEmitter {
         this.emit('partyUpdated');
     }
 
-    async _handleDataReady(peer) {
+    async _handleDataReady(peer: string): Promise<void> {
         this.party[peer].data = true;
         this.emit('partyUpdated');
         this.party[peer].ping = await this.network.rtcConnection(peer).testLatency(5000);
         this.emit('partyUpdated');
     }
 
-    _handleReady(peer, part) {
+    _handleReady(peer: string, part: number): void {
         this.party[peer].ready = true;
         this.party[peer].part = part;
         this.emit('partyUpdated');
@@ -109,13 +140,13 @@ export class Party extends EventEmitter {
         }
     }
 
-    _handleTrackLoaded(peer) {
+    _handleTrackLoaded(peer?: string): void {
         if (peer) {
             this.sessionParty[peer].loaded = true;
             this.emit('partyUpdated');
         }
         console.log('session members', this.sessionParty);
-        let pending = Object.values(this.sessionParty).reduce((a, v) => a + (v.loaded ? 0 : 1), 0);
+        let pending = <number>Object.values(this.sessionParty).reduce((a, v) => a + (v.loaded ? 0 : 1), 0);
         if (pending === 0) {
             if (this.isMaster) {
                 console.log("Time to begin!");
@@ -128,17 +159,17 @@ export class Party extends EventEmitter {
         }
     }
 
-    _broadcastTrack() {
+    _broadcastTrack(): void {
         let song = this.queue[0];
         if (!song) {
             song = (Math.random() * 900)|0;
         }
         this.network.broadcast({action: "loadTrack", track: song});
-        this.network.ws.send({action: "removeFromQueue", song: song});
+        this.network.sendToServer({action: "removeFromQueue", song: song});
         this._handleLoadTrack(song);
     }
 
-    _handleLoadTrack(track) {
+    _handleLoadTrack(track: number): void {
         if (this.playing) {
             console.warn("Got load track command when already playing.");
             return;
@@ -153,12 +184,12 @@ export class Party extends EventEmitter {
         this.emit("loadTrack", track);
     }
 
-    trackDidLoad() {
+    trackDidLoad(): void {
         this.network.broadcast({action: "trackLoaded"});
         this._handleTrackLoaded(this.network.channelName);
     }
 
-    _startGame() {
+    _startGame(): void {
         let maxPing = Object.values(this.sessionParty).reduce((a, v) => a + (v.ping||0), 0) / 2;
         let startTime = Math.round(fixedTimestamp() + maxPing * 1.5);
         startTime += 50; // because if it's very short other issues can appear.
@@ -166,7 +197,7 @@ export class Party extends EventEmitter {
         this.network.broadcast({action: "startGame", time: startTime});
     }
 
-    _handleStartGame(time) {
+    _handleStartGame(time: number): void {
         let now = fixedTimestamp();
         let delay = time - now;
         setTimeout(() => this.emit("startGame"), delay);
@@ -177,37 +208,37 @@ export class Party extends EventEmitter {
         }
     }
 
-    _handleUpdatedPlaylist(songs) {
+    _handleUpdatedPlaylist(songs: number[]): void {
         this.queue = songs;
         this.emit('updatedPlaylist', songs);
     }
 
-    setReady(part) {
+    setReady(part: number): void {
         this.network.broadcast({action: "readyToGo", part});
         this._handleReady(this.network.channelName, part);
     }
 
-    trackEnded() {
+    trackEnded(): void {
         this.playing = false;
         this.sessionParty = null;
         this.emit('partyUpdated');
     }
 
-    addToPlaylist(id) {
-        this.network.ws.send({action: "addToQueue", song: id})
+    addToPlaylist(id: number): void {
+        this.network.sendToServer({action: "addToQueue", song: id});
     }
 
-    get isMaster() {
+    get isMaster(): boolean {
         let peers = Object.keys(this.sessionParty || this.party);
         peers.sort();
         return (this.network.channelName === peers[0]);
     }
 
-    get me() {
+    get me(): PartyMember {
         return this.party[this.network.channelName];
     }
 
-    get memberIndex() {
+    get memberIndex(): number {
         let peers = Object.values(this.sessionParty || this.party);
         peers.sort();
         return peers.findIndex((x) => x.me);

@@ -1,10 +1,27 @@
-import Colour from 'color';
+import * as Colour from 'color';
+import {Song, SongLine} from "./parser";
+import {Player} from "../player";
+import {AudioPlayer} from "../game";
 
 const LYRIC_BACKGROUND_COLOUR = 'rgba(50, 50, 50, 0.8)';
 const FONT = 'Ubuntu, sans-serif';
 
+interface Rect {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+}
+
 export class LyricRenderer {
-    constructor(canvas, x, y, w, h) {
+    private canvas: HTMLCanvasElement;
+    private context: CanvasRenderingContext2D;
+    private rect: Rect;
+    private song: Song;
+    private part: number;
+    activeColour: string;
+
+    constructor(canvas: HTMLCanvasElement, x?: number, y?: number, w?: number, h?: number) {
         this.canvas = canvas;
         this.context = this.canvas.getContext('2d');
         this.rect = {x, y, w, h};
@@ -13,16 +30,16 @@ export class LyricRenderer {
         this.activeColour = '#4287f4';
     }
 
-    setSong(song, part) {
+    setSong(song: Song, part: number): void {
         this.song = song;
         this.part = part || 0;
     }
 
-    setRect(x, y, w, h) {
+    setRect(x: number, y: number, w: number, h: number): void {
         this.rect = {x, y, w, h};
     }
 
-    render(time) {
+    render(time: number): void {
         let beat = this.song.msToBeats(time);
         let ctx = this.context;
         ctx.save();
@@ -42,7 +59,7 @@ export class LyricRenderer {
         ctx.restore();
     }
 
-    _renderLyrics(line, beat, y, size) {
+    private _renderLyrics(line: SongLine, beat: number, y: number, size: number): number {
         let ctx = this.context;
         ctx.strokeStyle = 'black';
         ctx.fillStyle = 'white';
@@ -86,7 +103,7 @@ export class LyricRenderer {
         return startX;
     }
 
-    _renderStartIndicator(line, beat, height, width) {
+    private _renderStartIndicator(line: SongLine, beat: number, height: number, width: number): void {
         const MIN_SILENT_SECONDS = 2;
         let firstBeat = line.notes[0].beat;
         let start = line.index === 0 ? this.song.msToBeats((this.song.start || 0) * 1000) : line.start;
@@ -101,8 +118,26 @@ export class LyricRenderer {
     }
 }
 
+interface LineMetric {
+    lowestNote: number;
+    lineStartBeat: number;
+    lineEndBeat: number;
+}
+
 export class NoteRenderer {
-    constructor(canvas, x, y, w, h) {
+    private canvas: HTMLCanvasElement;
+    private context: CanvasRenderingContext2D;
+    private rect: Rect;
+    private song: Song;
+    private part: number;
+    private player: Player;
+    private outlineColour: string;
+    private innerColour: string;
+    private singColour: string;
+    private singOutlineColour: string;
+    private _lineMetrics: {[key: number]: LineMetric};
+
+    constructor(canvas: HTMLCanvasElement, x?: number, y?: number, w?: number, h?: number) {
         this.canvas = canvas;
         this.context = this.canvas.getContext('2d');
         this.rect = {x, y, w, h};
@@ -112,19 +147,20 @@ export class NoteRenderer {
         this.outlineColour = null;
         this.innerColour = null;
         this.singColour = null;
+        this.singOutlineColour = null;
         this._lineMetrics = {};
     }
 
-    setSong(song, part) {
+    setSong(song: Song, part: number): void {
         this.song = song;
         this.part = part || 0;
     }
 
-    setRect(x, y, w, h) {
+    setRect(x: number, y: number, w: number, h: number): void {
         this.rect = {x, y, w, h};
     }
 
-    setPlayer(player) {
+    setPlayer(player: Player): void {
         this.player = player;
         let colour = new Colour(this.player.colour);
         this.outlineColour = colour.darken(0.1).fade(0.1).string();
@@ -133,7 +169,7 @@ export class NoteRenderer {
         this.singOutlineColour = Colour(this.singColour).darken(0.6).hex();
     }
 
-    render(time) {
+    render(time: number): void {
         const EXPECTED_NOTE_INNER_RATIO = 0.7;
         const BAD_NOTE_RATIO = 0.4;
         const SUNG_NOTE_INNER_OFFSET = 0.1;
@@ -170,11 +206,11 @@ export class NoteRenderer {
         }
 
         if (this.player) {
-            let lastLine = null;
-            let lastStart = null;
-            let lastEnd = null;
-            let lastWasMatching = null;
-            let lastActualStartBeat = null;
+            let lastLine: number = null;
+            let lastStart: number = null;
+            let lastEnd: number = null;
+            let lastWasMatching : boolean = null;
+            let lastActualStartBeat: number = null;
             for (let note of this.player.notesInRange(startBeat, endBeat)) {
                 let beat = note.time;
                 let actual = line.getNoteNearBeat(beat);
@@ -222,9 +258,9 @@ export class NoteRenderer {
         }
     }
 
-    metricsForLine(line) {
+    private metricsForLine(line: SongLine): LineMetric {
         if (!line.notes.length) {
-            return {};
+            return {lowestNote: 0, lineEndBeat: 0, lineStartBeat: 0};
         }
         if (!this._lineMetrics[line.notes[0].beat]) {
             let lowestNote = line.notes.reduce((min, note) => note.type !== 'F' && note.pitch < min ? note.pitch : min, Infinity);
@@ -235,7 +271,7 @@ export class NoteRenderer {
         return this._lineMetrics[line.notes[0].beat];
     }
 
-    renderLine(songLine, renderLine, startBeat, endBeat, colourInner, colourOuter, scale) {
+    private renderLine(songLine: SongLine, renderLine: number, startBeat: number, endBeat: number, colourInner: string, colourOuter: string, scale: number) {
         let thickness = this.rect.h / 7;
         let {lineStartBeat, lineEndBeat} = this.metricsForLine(songLine);
         let ctx = this.context;
@@ -266,22 +302,27 @@ export class NoteRenderer {
 }
 
 export class ScoreRenderer {
-    constructor(canvas, x, y, w, h) {
+    private canvas: HTMLCanvasElement;
+    private context: CanvasRenderingContext2D;
+    private rect: Rect;
+    private player: Player;
+
+    constructor(canvas: HTMLCanvasElement, x?: number, y?: number, w?: number, h?: number) {
         this.canvas = canvas;
         this.context = this.canvas.getContext('2d');
         this.rect = {x, y, w, h};
         this.player = null;
     }
 
-    setRect(x, y, w, h) {
+    setRect(x: number, y: number, w: number, h: number): void {
         this.rect = {x, y, w, h};
     }
 
-    setPlayer(player) {
+    setPlayer(player: Player): void {
         this.player = player;
     }
 
-    render() {
+    render(): void {
         let ctx = this.canvas.getContext('2d');
         ctx.save();
         ctx.font = `${this.rect.h/1}px ${FONT}`;
@@ -302,14 +343,19 @@ export class ScoreRenderer {
 }
 
 export class TitleRenderer {
-    constructor(canvas, song) {
+    private canvas: HTMLCanvasElement;
+    private song: Song;
+    private context: CanvasRenderingContext2D;
+    private rect: {w: number, h: number};
+
+    constructor(canvas: HTMLCanvasElement, song: Song) {
         this.canvas = canvas;
         this.song = song;
         this.context = this.canvas.getContext('2d');
         this.rect = {w: canvas.clientWidth, h: canvas.clientHeight};
     }
 
-    render(opacity) {
+    render(opacity?: number): void {
         let ctx = this.context;
         ctx.clearRect(0, 0, this.rect.w, this.rect.h);
         ctx.save();
@@ -336,7 +382,15 @@ export class TitleRenderer {
 }
 
 export class ProgressRenderer {
-    constructor(canvas, song, audio, x, y, w, h) {
+    private canvas: HTMLCanvasElement;
+    private song: Song;
+    private audio: AudioPlayer;
+    private rect: Rect;
+    private context: CanvasRenderingContext2D;
+    private offscreenCanvas: HTMLCanvasElement;
+    private offscreenContext: CanvasRenderingContext2D;
+
+    constructor(canvas: HTMLCanvasElement, song: Song, audio: AudioPlayer, x?: number, y?: number, w?: number, h?: number) {
         this.canvas = canvas;
         this.song = song;
         this.audio = audio;
@@ -346,7 +400,7 @@ export class ProgressRenderer {
         this.offscreenContext = this.offscreenCanvas.getContext('2d');
     }
 
-    render(time) {
+    render(time: number): void {
         this.context.save();
         this.context.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
         this.context.fillStyle = LYRIC_BACKGROUND_COLOUR;
@@ -358,17 +412,17 @@ export class ProgressRenderer {
         this.context.restore();
     }
 
-    setRect(x, y, w, h) {
+    setRect(x: number, y: number, w: number, h: number): void {
         this.rect = {x, y, w, h};
         this._renderSummary();
     }
 
-    _renderSummary() {
+    _renderSummary(): void {
         let h = this.offscreenCanvas.height = this.rect.h;
         let w = this.offscreenCanvas.width = this.rect.w;
         let ctx = this.offscreenContext;
         ctx.clearRect(0, 0, w, h);
-        let parts = [[0, '#4287f4'], [1, '#d70000']];
+        let parts = <[number, string][]>[[0, '#4287f4'], [1, '#d70000']];
         let startBeat = this.song.msToBeats((this.song.start || 0) * 1000);
         let pixelsPerBeat = w / (this.song.msToBeats((this.audio.duration + (this.song.start || 0)) * 1000) - startBeat);
         ctx.globalCompositeOperation = 'lighter';
@@ -376,7 +430,7 @@ export class ProgressRenderer {
             if (!this.song.parts[partNum]) {
                 break;
             }
-            ctx.fillStyle = colour;
+            ctx.fillStyle = <string>colour;
             for (let line of this.song.parts[partNum]) {
                 for (let note of line.notes) {
                     ctx.fillRect((note.beat - startBeat) * pixelsPerBeat, 0, note.length * pixelsPerBeat, h);

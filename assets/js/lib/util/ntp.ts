@@ -1,14 +1,13 @@
-"use strict";
 // based on NTP.js, https://jehiah.cz/a/ntp-for-javascript
 // This is much dumber than actual NTP, and does not in fact get the same time as the server.
 // However, it is sufficient to get every client's clock in sync with every other client, which was the actual aim.
 
 const REQUIRED_RESPONSES = 10;
 
-let serverTimes = [];
-let timeOffset = null;
+let serverTimes: number[] = [];
+let timeOffset: number = null;
 
-async function getServerTime() {
+async function getServerTime(): Promise<void> {
     let response = await fetch(`/ntp?t=${Date.now()}`);
     let text = await response.text();
 
@@ -25,12 +24,12 @@ async function getServerTime() {
     }
 }
 
-export function syncTime() {
+export function syncTime(): void {
     serverTimes = [];
     getServerTime();
 }
 
-export function fixedTimestamp() {
+export function fixedTimestamp(): number {
     let ts = Date.now();
     if (timeOffset === null) {
         console.warn("Using uncorrected timestamp; server sync incomplete.");

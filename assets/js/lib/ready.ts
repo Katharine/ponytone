@@ -1,9 +1,19 @@
 import {getSongMap} from "./tracklist";
-import escapeHtml from "escape-html";
-import EventEmitter from "events";
+import {Party} from "./party/party";
+
+import * as escapeHtml from "escape-html";
+import {EventEmitter} from "events";
 
 export class Ready extends EventEmitter {
-    constructor(container, party) {
+    private container: HTMLElement;
+    private party: Party;
+    private button: HTMLButtonElement;
+    private duetContainer: HTMLDivElement;
+    private partSelect: HTMLSelectElement;
+    private _hasParts: boolean;
+    private _songID: number;
+
+    constructor(container: HTMLElement, party: Party) {
         super();
         this.container = container;
         this.party = party;
@@ -26,7 +36,11 @@ export class Ready extends EventEmitter {
         this._songID = null;
     }
 
-    async _updatedPlaylist(songs) {
+    on(event: 'ready', listener: (part: number) => any): this {
+        return super.on(event, listener);
+    }
+
+    async _updatedPlaylist(songs: number[]): Promise<void> {
         if (songs.length === 0) {
             this.container.className = '';
             this._hasParts = false;
@@ -51,21 +65,21 @@ export class Ready extends EventEmitter {
         }
     }
 
-    _handleReady() {
+    _handleReady(): void {
         this.emit('ready', this.part);
         this.partSelect.setAttribute('disabled', 'disabled');
     }
 
-    _partChanged() {
+    _partChanged(): void {
         this.partSelect.className = `part${this.partSelect.selectedIndex}`;
     }
 
-    reset() {
+    reset(): void {
         this.partSelect.removeAttribute('disabled');
         this._songID = null;
     }
 
-    get part() {
+    get part(): number {
         return this._hasParts ? this.partSelect.selectedIndex : 0;
     }
 }

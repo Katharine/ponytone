@@ -1,7 +1,11 @@
-import escapeHtml from 'escape-html';
+import * as escapeHtml from 'escape-html';
+import {Party} from "./party";
 
 export class PartyList {
-    constructor(container, party) {
+    private container: HTMLElement;
+    private party: Party;
+
+    constructor(container: HTMLElement, party: Party) {
         this.container = container;
         this.party = party;
     }
@@ -12,15 +16,14 @@ export class PartyList {
         console.log(this.party.party);
         for (let [channel, member] of Object.entries(this.party.party)) {
             let div = document.createElement('div');
-            let classList = [];
+            div.className = '';
             if (member.ready) {
-                classList.push('ready');
+                div.classList.add('ready');
             } else if(member.data || member.me) {
-                classList.push('waiting');
+                div.classList.add('waiting');
             } else {
-                classList.push('connecting');
+                div.classList.add('connecting');
             }
-            div.classList = classList;
             let html = `<div class="middle"><div class="name">${escapeHtml(member.nick)}</div>`;
             if (member.score !== null) {
                 html += `<div class="score">Score: ${member.score.toLocaleString()}</div>`;
