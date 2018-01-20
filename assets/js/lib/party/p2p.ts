@@ -24,6 +24,14 @@ export class PeerConnection extends EventEmitter {
         this.on('ping', (message) => this._handlePing(message));
     }
 
+    on(event: 'close', listener: () => any): this;
+    on(event: 'data', listener: (action: string, message: GameMessage | NetworkingMessage) => any): this;
+    on(event: 'dataChannelAvailable', listener: () => any): this;
+    on(event: 'ping', listener: (message: PingMessage) => any): this;
+    on(event: string, listener: (...args: any[]) => any): this {
+        return super.on(event, listener);
+    }
+
     connect(): void {
         this._createConnection();
         this.dataStream = this.connection.createDataChannel(`p2p-${this.peer}`);
@@ -57,7 +65,7 @@ export class PeerConnection extends EventEmitter {
         }
     }
 
-    private _handlePing(message: {time: number}): void {
+    private _handlePing(message: PingMessage): void {
         this.send({action: "pong", time: message.time})
     }
 

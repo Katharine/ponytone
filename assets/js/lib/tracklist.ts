@@ -117,7 +117,11 @@ export class TrackList extends EventEmitter {
         this._handleFilter();
     }
 
-    _handleClick(e: MouseEvent): void {
+    on(event: 'songPicked', listener: (song: number) => any): this {
+        return super.on(event, listener);
+    }
+
+    private _handleClick(e: MouseEvent): void {
         let target = <HTMLElement>e.target;
         if (!target.dataset.song) {
             return;
@@ -126,7 +130,7 @@ export class TrackList extends EventEmitter {
         this.emit('songPicked', parseInt(target.dataset.song, 10));
     }
 
-    async _handleFilter(): Promise<void> {
+    private async _handleFilter(): Promise<void> {
         let songs = await getSongData(this.searchInput.value);
         this.cluster.update(songs.map(renderSong));
     }

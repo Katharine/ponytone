@@ -56,6 +56,14 @@ export class Party extends EventEmitter {
         this.network.on('sangNotes', (message, peer) => this._updateScore(peer, message.score));
     }
 
+    on(event: 'startGame', listener: (delay: number) => any): this;
+    on(event: 'partyUpdated', listener: () => any): this;
+    on(event: 'loadTrack', listener: (track: number) => any): this;
+    on(event: 'updatedPlaylist', listener: (songs: number[]) => any): this;
+    on(event: string, listener: (...args: any[]) => any): this {
+        return super.on(event, listener);
+    }
+
     _makeMember(nick: string, colour: string): PartyMember {
         return {
             nick: nick,

@@ -42,6 +42,15 @@ export class GameSession extends EventEmitter implements AudioPlayer {
         this._duration = null;
     }
 
+    on(event: 'error', listener: (e?: Error) => any): this;
+    on(event: 'ready', listener: () => any): this;
+    on(event: 'finished', listener: () => any): this;
+    on(event: string, listener: (...args: any[]) => any): this {
+        return super.on(event, listener);
+    }
+
+
+
     setSize(width: number, height: number) {
         this.width = width;
         this.height = height;

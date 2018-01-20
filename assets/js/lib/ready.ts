@@ -36,6 +36,10 @@ export class Ready extends EventEmitter {
         this._songID = null;
     }
 
+    on(event: 'ready', listener: (part: number) => any): this {
+        return super.on(event, listener);
+    }
+
     async _updatedPlaylist(songs: number[]): Promise<void> {
         if (songs.length === 0) {
             this.container.className = '';

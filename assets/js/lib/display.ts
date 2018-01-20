@@ -60,6 +60,10 @@ export class GameDisplay extends EventEmitter {
         this.container.style.height = `${height}px`;
     }
 
+    on(event: 'ready', listener: () => void): this {
+        return super.on(event, listener);
+    }
+
     setSize(width: number, height: number): void {
         this.width = width;
         this.height = height;

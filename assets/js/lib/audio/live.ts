@@ -40,6 +40,10 @@ export class LiveAudio extends EventEmitter {
         this._getMedia();
     }
 
+    on(event: 'failed', listener: () => any): this {
+        return super.on(event, listener);
+    }
+
     private async _getMedia(): Promise<void> {
         try {
             this.stream = await navigator.mediaDevices.getUserMedia({
