@@ -208,14 +208,14 @@ export class NoteRenderer {
             finalLine = altLine;
         }
         let diffFromExpected = Math.min(Math.abs(finalLine - expectedLine), Math.abs(expectedLine - finalLine));
-        if (this._isSuccessfulNote(expected, actual)) {
+        if (expected.type !== 'F' && this._isSuccessfulNote(expected, actual)) {
             if (diffFromExpected > 1) {
                 console.error("Successful result in the wrong place!?")
                 debugger;
             }
-            return finalLine; //expectedLine;
+            return expectedLine;
         } else {
-            if (actual.time >= expected.beat && actual.time < expected.beat + expected.length && diffFromExpected <= 1) {
+            if (expected.type !== 'F' && actual.time >= expected.beat && actual.time < expected.beat + expected.length && diffFromExpected <= 1) {
                 console.error("Unsuccessful result in successful bar!?");
                 debugger;
             }
@@ -243,6 +243,13 @@ export class NoteRenderer {
         let lastWasMatching : boolean = null;
         let lastActualStartBeat: number = null;
         let lastNote: Note = null;
+
+        let doRender = () => {
+            let lastWasGold = lastWasMatching && lastNote.type == '*';
+            let ratio = lastWasMatching ? EXPECTED_NOTE_INNER_RATIO : BAD_NOTE_RATIO;
+            this.renderLine(line, lastRenderLine, lastStart, lastEnd + 1, lastWasGold ? GOLDEN_NOTE_SING_COLOUR : this.singColour, lastWasGold ? GOLDEN_NOTE_SING_OUTLINE_COLOUR : this.singOutlineColour, ratio);
+        }
+
         for (let note of notes) {
             let beat = note.time;
             let expected = line.getNoteNearBeat(beat);
@@ -255,9 +262,7 @@ export class NoteRenderer {
             }
             // now we have to render the *previous* note
             if (lastNote) {
-                let lastWasGold = lastWasMatching && lastNote.type == '*';
-                let ratio = lastWasMatching ? EXPECTED_NOTE_INNER_RATIO : BAD_NOTE_RATIO;
-                this.renderLine(line, lastRenderLine, lastStart, lastEnd, lastWasGold ? GOLDEN_NOTE_SING_COLOUR : this.singColour, lastWasGold ? GOLDEN_NOTE_SING_OUTLINE_COLOUR : this.singOutlineColour, ratio);
+                doRender();
             }
             
             // Update what 'previous' means.
@@ -269,9 +274,7 @@ export class NoteRenderer {
             lastNote = expected;
         }
         if (lastRenderLine !== null) {
-            let ratio = lastWasMatching ? EXPECTED_NOTE_INNER_RATIO : BAD_NOTE_RATIO;
-            let lastWasGold = lastWasMatching && lastNote.type == '*';
-            this.renderLine(line, lastRenderLine, lastStart, lastEnd, lastWasGold ? GOLDEN_NOTE_SING_COLOUR : this.singColour, lastWasGold ? GOLDEN_NOTE_SING_OUTLINE_COLOUR : this.singOutlineColour, ratio);
+            doRender();
         }
     }
 
@@ -320,12 +323,12 @@ export class NoteRenderer {
         let ctx = this.context;
         ctx.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
         ctx.save();
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1;
         ctx.strokeStyle = '#333333';
         ctx.lineCap = 'butt';
-        for (let i = 0; i < 10; ++i) {
+        for (let i = 0; i < 12; ++i) {
             ctx.beginPath();
-            let y = this.rect.y + (this.rect.h - ((i+0.5) * (this.rect.h / 11))) - this.rect.h / 22;
+            let y = this.rect.y + (this.rect.h - ((i+0.5) * (this.rect.h / 13.5))) - this.rect.h / 27;
             ctx.moveTo(this.rect.x, y);
             ctx.lineTo(this.rect.x + this.rect.w, y);
             ctx.stroke();
@@ -352,6 +355,9 @@ export class NoteRenderer {
         }
         if (!this._lineMetrics[line.notes[0].beat]) {
             let lowestNote = line.notes.reduce((min, note) => note.type !== 'F' && note.pitch < min ? note.pitch : min, Infinity);
+            if (lowestNote == Infinity) {
+                lowestNote = 0;
+            }
             let lineStartBeat = line.notes[0].beat;
             let lineEndBeat = line.notes[line.notes.length - 1].beat + line.notes[line.notes.length - 1].length;
             this._lineMetrics[lineStartBeat] = {lowestNote, lineStartBeat, lineEndBeat};
@@ -360,7 +366,7 @@ export class NoteRenderer {
     }
 
     private renderLine(songLine: SongLine, renderLine: number, startBeat: number, endBeat: number, colourInner: string, colourOuter: string, scale: number) {
-        let thickness = this.rect.h / 7;
+        let thickness = this.rect.h / 8.8;
         let {lineStartBeat, lineEndBeat} = this.metricsForLine(songLine);
         let ctx = this.context;
         ctx.save();
@@ -373,13 +379,10 @@ export class NoteRenderer {
         let w = this.rect.w * 0.95;
         let beatWidth = w / (lineEndBeat - lineStartBeat);
         let x = this.rect.h/7;
-        let y = this.rect.y + (this.rect.h - ((renderLine + 1) * (this.rect.h / 22))) - this.rect.h / 22;
+        let y = this.rect.y + (this.rect.h - ((renderLine + 1) * (this.rect.h / 27))) - this.rect.h / 27;
         let cap = 0;
 
         ctx.beginPath();
-        if (startBeat === endBeat) {
-            endBeat++;
-        }
         let x1 = this.rect.x + x + cap / scale + beatWidth * (startBeat - lineStartBeat);
         let x2 = this.rect.x + x - cap / scale + beatWidth * (endBeat - lineStartBeat);
         ctx.fillRect(x1, y - thickness/2, x2 - x1, thickness);
