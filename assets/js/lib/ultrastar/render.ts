@@ -3,6 +3,7 @@ import {Song, SongLine} from "./parser";
 import {Player} from "../player";
 import {AudioPlayer} from "../game";
 import {Note} from "./parser";
+import { SungNote } from '../audio/live';
 
 const LYRIC_BACKGROUND_COLOUR = 'rgba(50, 50, 50, 0.8)';
 const FONT = 'Ubuntu, sans-serif';
@@ -133,6 +134,14 @@ const GOLDEN_NOTE_INNER_COLOUR = colour.lighten(0.3).desaturate(0.5).hex();
 const GOLDEN_NOTE_SING_COLOUR = colour.lighten(0.4).hex();
 const GOLDEN_NOTE_SING_OUTLINE_COLOUR = Colour(GOLDEN_NOTE_SING_COLOUR).darken(0.6).hex();
 
+const EXPECTED_NOTE_INNER_RATIO = 0.7;
+const BAD_NOTE_RATIO = 0.4;
+const SUNG_NOTE_INNER_OFFSET = 0.1;
+
+const AVAILABLE_LINES = 24;
+const BASE_OFFSET = 4;
+const SEMITONES_PER_OCTAVE = 12;
+
 export class NoteRenderer {
     private canvas: HTMLCanvasElement;
     private context: CanvasRenderingContext2D;
@@ -178,115 +187,110 @@ export class NoteRenderer {
         this.singOutlineColour = Colour(this.singColour).darken(0.6).hex();
     }
 
-    render(time: number): void {
-        const EXPECTED_NOTE_INNER_RATIO = 0.7;
-        const BAD_NOTE_RATIO = 0.4;
-        const SUNG_NOTE_INNER_OFFSET = 0.1;
-        let ctx = this.context;
-        ctx.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
-        ctx.save();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#333333';
-        ctx.lineCap = 'butt';
-        for (let i = 0; i < 10; ++i) {
-            ctx.beginPath();
-            let y = this.rect.y + (this.rect.h - ((i+0.5) * (this.rect.h / 11))) - this.rect.h / 22;
-            ctx.moveTo(this.rect.x, y);
-            ctx.lineTo(this.rect.x + this.rect.w, y);
-            ctx.stroke();
-        }
-        ctx.restore();
+    private _getExpectedLine(line: SongLine, note: Note): number {
+        const {lowestNote} = this.metricsForLine(line);
+        let expectedLine = (note.pitch - lowestNote + BASE_OFFSET) % AVAILABLE_LINES;
+        return expectedLine;
+    }
 
-        let line = this.song.getLine(time, this.player.part);
-        if (!line) {
-            return;
+    private _getSungLine(line: SongLine, expected: Note, actual: SungNote): number {
+        let {lowestNote} = this.metricsForLine(line);
+        lowestNote = ((lowestNote % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE;
+        let actualNote = ((actual.note % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE;
+        const expectedLine = this._getExpectedLine(line, expected);
+        let renderLine = (((actualNote - lowestNote + BASE_OFFSET) % AVAILABLE_LINES) + AVAILABLE_LINES) % AVAILABLE_LINES;
+        let altLine = (renderLine + SEMITONES_PER_OCTAVE) % AVAILABLE_LINES;
+        if (altLine < 0) debugger;
+        let finalLine: number;
+        if (altLine === null || Math.abs(renderLine - expectedLine) < Math.abs(altLine - expectedLine)) {
+            finalLine = renderLine;
+        } else {
+            finalLine = altLine;
         }
-        let startBeat = line.notes[0].beat;
-        let endBeat = line.notes[line.notes.length - 1].beat + line.notes[line.notes.length - 1].length;
+        let diffFromExpected = Math.min(Math.abs(finalLine - expectedLine), Math.abs(expectedLine - finalLine));
+        if (expected.type !== 'F' && this._isSuccessfulNote(expected, actual)) {
+            if (diffFromExpected > 1) {
+                console.error("Successful result in the wrong place!?")
+                debugger;
+            }
+            return expectedLine;
+        } else {
+            if (expected.type !== 'F' && actual.time >= expected.beat && actual.time < expected.beat + expected.length && diffFromExpected <= 1) {
+                console.error("Unsuccessful result in successful bar!?");
+                debugger;
+            }
+            return finalLine;
+        }
+    }
 
+    private _isSuccessfulNote(expected: Note, actual: SungNote): boolean {
+        let isOnNote = actual.time >= expected.beat && actual.time < expected.beat + expected.length;
+        if (!isOnNote) {
+            return false;
+        }
+        let expectedNote = ((expected.pitch % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE;
+        let actualNote = ((actual.note % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE;
+        let noteDiff = Math.abs(actualNote - expectedNote);
+        return noteDiff <= 1 || noteDiff >= 11;
+    }
+
+    private _renderActual(line: SongLine, notes: SungNote[]) {
+        let {lowestNote} = this.metricsForLine(line);
+
+        let lastRenderLine: number = null;
+        let lastStart: number = null;
+        let lastEnd: number = null;
+        let lastWasMatching : boolean = null;
+        let lastActualStartBeat: number = null;
+        let lastNote: Note = null;
+
+        let doRender = () => {
+            let lastWasGold = lastWasMatching && lastNote.type == '*';
+            let ratio = lastWasMatching ? EXPECTED_NOTE_INNER_RATIO : BAD_NOTE_RATIO;
+            this.renderLine(line, lastRenderLine, lastStart, lastEnd + 1, lastWasGold ? GOLDEN_NOTE_SING_COLOUR : this.singColour, lastWasGold ? GOLDEN_NOTE_SING_OUTLINE_COLOUR : this.singOutlineColour, ratio);
+        }
+
+        for (let note of notes) {
+            let beat = note.time;
+            let expected = line.getNoteNearBeat(beat);
+            let renderLine = this._getSungLine(line, expected, note);
+            let matchingNote = this._isSuccessfulNote(expected, note);
+
+            if (renderLine === lastRenderLine && lastWasMatching === matchingNote && beat === lastEnd + 1 && lastActualStartBeat === expected.beat) {
+                lastEnd = beat;
+                continue;
+            }
+            // now we have to render the *previous* note
+            if (lastNote) {
+                doRender();
+            }
+            
+            // Update what 'previous' means.
+            lastStart = beat;
+            lastEnd = beat;
+            lastRenderLine = renderLine;
+            lastWasMatching = matchingNote;
+            lastActualStartBeat = expected.beat;
+            lastNote = expected;
+        }
+        if (lastRenderLine !== null) {
+            doRender();
+        }
+    }
+
+    private _renderExpected(line: SongLine): void {
         let {lowestNote} = this.metricsForLine(line);
         for (let note of line.notes) {
             if (note.type === 'F') {
                 continue;
             }
-            let renderLine = (note.pitch - lowestNote + 4) % 18;
+            let renderLine = this._getExpectedLine(line, note);
             let isGold = note.type == '*';
             this.renderLine(line, renderLine, note.beat, note.beat + note.length, isGold ? GOLDEN_NOTE_INNER_COLOUR : this.innerColour, isGold ? GOLDEN_NOTE_OUTLINE_COLOUR : this.outlineColour, 1);
         }
-
-        if (this.player) {
-            let lastLine: number = null;
-            let lastStart: number = null;
-            let lastEnd: number = null;
-            let lastWasMatching : boolean = null;
-            let lastActualStartBeat: number = null;
-            let lastNote: Note = null;
-            for (let note of this.player.notesInRange(startBeat, endBeat)) {
-                let beat = note.time;
-                let actual = line.getNoteNearBeat(beat);
-                let renderLine = ((note.note % 12) - (lowestNote % 12) + 4) % 18;
-                let altLine;
-                if (renderLine >= 12) {
-                    altLine = renderLine - 12;
-                } else if (renderLine < 6) {
-                    altLine = renderLine + 12;
-                } else {
-                    altLine = renderLine;
-                }
-                let actualLine = (actual.pitch - lowestNote + 4) % 18;
-                while (renderLine < 0) renderLine += 18;
-                while (altLine < 0) altLine += 18;
-                let pitchDiff = Math.abs((actual.pitch % 12) - (note.note % 12));
-                let matchingNote = (pitchDiff <= 1 || pitchDiff >= 11) && beat >= actual.beat && beat <= actual.beat + actual.length;
-                if (matchingNote) {
-                    renderLine = actualLine;
-                } else {
-                    if (Math.abs(altLine - actualLine) < Math.abs(renderLine - actualLine)) {
-                        renderLine = altLine;
-                    }
-                }
-                if (renderLine === lastLine && lastWasMatching === matchingNote && beat === lastEnd + 1 && lastActualStartBeat === actual.beat) {
-                    lastEnd = beat;
-                    continue;
-                }
-                // now we have to render the *previous* note
-                let ratio = lastWasMatching ? EXPECTED_NOTE_INNER_RATIO : BAD_NOTE_RATIO;
-                if (lastNote) {
-                    let lastWasGold = lastWasMatching && lastNote.type == '*';
-                    this.renderLine(line, lastLine, lastStart, lastEnd, lastWasGold ? GOLDEN_NOTE_SING_COLOUR : this.singColour, lastWasGold ? GOLDEN_NOTE_SING_OUTLINE_COLOUR : this.singOutlineColour, ratio);
-                }
-                
-                // Update what 'previous' means.
-                lastStart = beat;
-                lastEnd = beat;
-                lastLine = renderLine;
-                lastWasMatching = matchingNote;
-                lastActualStartBeat = actual.beat;
-                lastNote = actual;
-            }
-
-            if (lastLine !== null) {
-                let ratio = lastWasMatching ? EXPECTED_NOTE_INNER_RATIO : BAD_NOTE_RATIO;
-                let lastWasGold = lastWasMatching && lastNote.type == '*';
-                this.renderLine(line, lastLine, lastStart, lastEnd, lastWasGold ? GOLDEN_NOTE_SING_COLOUR : this.singColour, lastWasGold ? GOLDEN_NOTE_SING_OUTLINE_COLOUR : this.singOutlineColour, ratio);
-            }
-        }
     }
 
-    private metricsForLine(line: SongLine): LineMetric {
-        if (!line.notes.length) {
-            return {lowestNote: 0, lineEndBeat: 0, lineStartBeat: 0};
-        }
-        if (!this._lineMetrics[line.notes[0].beat]) {
-            let lowestNote = line.notes.reduce((min, note) => note.type !== 'F' && note.pitch < min ? note.pitch : min, Infinity);
-            let lineStartBeat = line.notes[0].beat;
-            let lineEndBeat = line.notes[line.notes.length - 1].beat + line.notes[line.notes.length - 1].length;
-            this._lineMetrics[lineStartBeat] = {lowestNote, lineStartBeat, lineEndBeat};
-        }
-        return this._lineMetrics[line.notes[0].beat];
-    }
-
-    private renderLine(songLine: SongLine, renderLine: number, startBeat: number, endBeat: number, colourInner: string, colourOuter: string, scale: number) {
+    private _renderLine(songLine: SongLine, renderLine: number, startBeat: number, endBeat: number, colourInner: string, colourOuter: string, scale: number) {
         let thickness = this.rect.h / 7;
         let {lineStartBeat, lineEndBeat} = this.metricsForLine(songLine);
         let ctx = this.context;
@@ -307,6 +311,78 @@ export class NoteRenderer {
         if (startBeat === endBeat) {
             endBeat++;
         }
+        let x1 = this.rect.x + x + cap / scale + beatWidth * (startBeat - lineStartBeat);
+        let x2 = this.rect.x + x - cap / scale + beatWidth * (endBeat - lineStartBeat);
+        ctx.fillRect(x1, y - thickness/2, x2 - x1, thickness);
+        ctx.strokeRect(x1, y - thickness/2, x2 - x1, thickness);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    render(time: number): void {
+        let ctx = this.context;
+        ctx.clearRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h);
+        ctx.save();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#333333';
+        ctx.lineCap = 'butt';
+        for (let i = 0; i < 12; ++i) {
+            ctx.beginPath();
+            let y = this.rect.y + (this.rect.h - ((i+0.5) * (this.rect.h / 13.5))) - this.rect.h / 27;
+            ctx.moveTo(this.rect.x, y);
+            ctx.lineTo(this.rect.x + this.rect.w, y);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        let line = this.song.getLine(time, this.player.part);
+        if (!line) {
+            return;
+        }
+        let startBeat = line.notes[0].beat;
+        let endBeat = line.notes[line.notes.length - 1].beat + line.notes[line.notes.length - 1].length;
+
+        this._renderExpected(line);
+
+        if (this.player) {
+            this._renderActual(line, this.player.notesInRange(startBeat, endBeat));
+        }
+    }
+
+    private metricsForLine(line: SongLine): LineMetric {
+        if (!line.notes.length) {
+            return {lowestNote: 0, lineEndBeat: 0, lineStartBeat: 0};
+        }
+        if (!this._lineMetrics[line.notes[0].beat]) {
+            let lowestNote = line.notes.reduce((min, note) => note.type !== 'F' && note.pitch < min ? note.pitch : min, Infinity);
+            if (lowestNote == Infinity) {
+                lowestNote = 0;
+            }
+            let lineStartBeat = line.notes[0].beat;
+            let lineEndBeat = line.notes[line.notes.length - 1].beat + line.notes[line.notes.length - 1].length;
+            this._lineMetrics[lineStartBeat] = {lowestNote, lineStartBeat, lineEndBeat};
+        }
+        return this._lineMetrics[line.notes[0].beat];
+    }
+
+    private renderLine(songLine: SongLine, renderLine: number, startBeat: number, endBeat: number, colourInner: string, colourOuter: string, scale: number) {
+        let thickness = this.rect.h / 8.8;
+        let {lineStartBeat, lineEndBeat} = this.metricsForLine(songLine);
+        let ctx = this.context;
+        ctx.save();
+        ctx.lineCap = 'butt';
+
+        thickness *= scale;
+        ctx.fillStyle = colourInner;
+        ctx.strokeStyle = colourOuter;
+        ctx.lineWidth = thickness * 0.1;
+        let w = this.rect.w * 0.95;
+        let beatWidth = w / (lineEndBeat - lineStartBeat);
+        let x = this.rect.h/7;
+        let y = this.rect.y + (this.rect.h - ((renderLine + 1) * (this.rect.h / 27))) - this.rect.h / 27;
+        let cap = 0;
+
+        ctx.beginPath();
         let x1 = this.rect.x + x + cap / scale + beatWidth * (startBeat - lineStartBeat);
         let x2 = this.rect.x + x - cap / scale + beatWidth * (endBeat - lineStartBeat);
         ctx.fillRect(x1, y - thickness/2, x2 - x1, thickness);
