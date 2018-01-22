@@ -228,6 +228,9 @@ export class NoteRenderer {
         if (!isOnNote) {
             return false;
         }
+        if (expected.type === 'F') {
+            return true;
+        }
         let expectedNote = ((expected.pitch % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE;
         let actualNote = ((actual.note % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE;
         let noteDiff = Math.abs(actualNote - expectedNote);
@@ -282,41 +285,13 @@ export class NoteRenderer {
         let {lowestNote} = this.metricsForLine(line);
         for (let note of line.notes) {
             if (note.type === 'F') {
-                continue;
+                this.renderFreestyle(line, note.beat, note.beat + note.length);
+            } else {
+                let renderLine = this._getExpectedLine(line, note);
+                let isGold = note.type == '*';
+                this.renderLine(line, renderLine, note.beat, note.beat + note.length, isGold ? GOLDEN_NOTE_INNER_COLOUR : this.innerColour, isGold ? GOLDEN_NOTE_OUTLINE_COLOUR : this.outlineColour, 1);
             }
-            let renderLine = this._getExpectedLine(line, note);
-            let isGold = note.type == '*';
-            this.renderLine(line, renderLine, note.beat, note.beat + note.length, isGold ? GOLDEN_NOTE_INNER_COLOUR : this.innerColour, isGold ? GOLDEN_NOTE_OUTLINE_COLOUR : this.outlineColour, 1);
         }
-    }
-
-    private _renderLine(songLine: SongLine, renderLine: number, startBeat: number, endBeat: number, colourInner: string, colourOuter: string, scale: number) {
-        let thickness = this.rect.h / 7;
-        let {lineStartBeat, lineEndBeat} = this.metricsForLine(songLine);
-        let ctx = this.context;
-        ctx.save();
-        ctx.lineCap = 'butt';
-
-        thickness *= scale;
-        ctx.fillStyle = colourInner;
-        ctx.strokeStyle = colourOuter;
-        ctx.lineWidth = thickness * 0.1;
-        let w = this.rect.w * 0.95;
-        let beatWidth = w / (lineEndBeat - lineStartBeat);
-        let x = this.rect.h/7;
-        let y = this.rect.y + (this.rect.h - ((renderLine + 1) * (this.rect.h / 22))) - this.rect.h / 22;
-        let cap = 0;
-
-        ctx.beginPath();
-        if (startBeat === endBeat) {
-            endBeat++;
-        }
-        let x1 = this.rect.x + x + cap / scale + beatWidth * (startBeat - lineStartBeat);
-        let x2 = this.rect.x + x - cap / scale + beatWidth * (endBeat - lineStartBeat);
-        ctx.fillRect(x1, y - thickness/2, x2 - x1, thickness);
-        ctx.strokeRect(x1, y - thickness/2, x2 - x1, thickness);
-        ctx.stroke();
-        ctx.restore();
     }
 
     render(time: number): void {
@@ -388,6 +363,22 @@ export class NoteRenderer {
         ctx.fillRect(x1, y - thickness/2, x2 - x1, thickness);
         ctx.strokeRect(x1, y - thickness/2, x2 - x1, thickness);
         ctx.stroke();
+        ctx.restore();
+    }
+
+    private renderFreestyle(songLine: SongLine, startBeat: number, endBeat: number): void {
+        let {lineStartBeat, lineEndBeat} = this.metricsForLine(songLine);
+        let w = this.rect.w * 0.95;
+        let beatWidth = w / (lineEndBeat - lineStartBeat);
+        let x = this.rect.h/7;
+        let y = this.rect.y + 3 * (this.rect.h / 27);
+        let x1 = this.rect.x + x + beatWidth * (startBeat - lineStartBeat);
+        let x2 = this.rect.x + x + beatWidth * (endBeat - lineStartBeat);
+
+        let ctx = this.context;
+        ctx.save();
+        ctx.fillStyle = 'rgba(50, 50, 50, 0.8)';
+        ctx.fillRect(x1, y, x2 - x1, this.rect.h - 5 * (this.rect.h / 27));
         ctx.restore();
     }
 }
