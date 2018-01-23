@@ -107,6 +107,9 @@ export class LyricRenderer {
 
     private _renderStartIndicator(line: SongLine, beat: number, height: number, width: number): void {
         const MIN_SILENT_SECONDS = 2;
+        if (line.notes.length === 0) {
+            return;
+        }
         let firstBeat = line.notes[0].beat;
         let start = line.index === 0 ? this.song.msToBeats((this.song.start || 0) * 1000) : line.start;
         if (beat >= firstBeat || firstBeat - start < MIN_SILENT_SECONDS * 4 * this.song.bpm / 60) {
