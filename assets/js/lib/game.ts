@@ -1,7 +1,7 @@
 import {Song} from "./ultrastar/parser";
 import {GameDisplay} from "./display";
 import {LocalPlayer, Player} from "./player";
-import {getAudioContext} from "./util/audio-context";
+import {getAudioContext, kickAudioContext} from "./util/audio-context";
 import {EventEmitter} from "events";
 
 export interface AudioPlayer {
@@ -61,6 +61,7 @@ export class GameSession extends EventEmitter implements AudioPlayer {
 
     async prepare(): Promise<void> {
         try {
+            await kickAudioContext();
             let response = await fetch(this.songURL);
             this._prepare(await response.text());
         } catch (e) {
