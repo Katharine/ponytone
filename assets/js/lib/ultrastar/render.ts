@@ -212,8 +212,8 @@ export class NoteRenderer {
         }
         let diffFromExpected = Math.min(Math.abs(finalLine - expectedLine), Math.abs(expectedLine - finalLine));
         if (expected.type !== 'F' && this._isSuccessfulNote(expected, actual)) {
-            if (diffFromExpected > 1) {
-                console.error("Successful result in the wrong place!?")
+            if (diffFromExpected > 1 && (diffFromExpected < 4 || diffFromExpected > 6)) {
+                console.error("Successful result in the wrong place!?");
                 debugger;
             }
             return expectedLine;
@@ -234,8 +234,15 @@ export class NoteRenderer {
         if (expected.type === 'F') {
             return true;
         }
-        let expectedNote = ((expected.pitch % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE;
-        let actualNote = ((actual.note % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE;
+        // Accept notes five semitones above the correct pitch to be valid, because sometimes we spuriously pick
+        // these up instead. Harmonics!
+        // TODO: This is also done in scoring; should centralise.
+        return this._matches(expected.pitch, actual.note) || this._matches(expected.pitch, actual.note - 5);
+    }
+
+    private _matches(expected: number, actual: number): boolean {
+        let expectedNote = ((expected % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE;
+        let actualNote = ((actual % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE;
         let noteDiff = Math.abs(actualNote - expectedNote);
         return noteDiff <= 1 || noteDiff >= 11;
     }

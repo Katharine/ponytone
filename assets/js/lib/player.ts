@@ -77,14 +77,20 @@ export class LocalPlayer implements Player {
                 if (!actual[i]) {
                     break;
                 }
-                let diff = Math.abs((actual[i].note % 12) - (note.pitch % 12));
-                if (diff <= 1 || diff >= 11) {
+                // Score notes five semitones too high as if they were correct.
+                // TODO: This is also done in rendering; should centralise.
+                if (this.matches(actual[i].note, note.pitch) || this.matches(actual[i].note, note.pitch - 5)) {
                     score += scorePerBeat * (note.type == '*' ? 2 : 1);
                 }
                 ++i;
             }
         }
         return Math.round(score);
+    }
+
+    private matches(actual: number, detected: number) {
+        const diff = Math.abs((actual % 12) - (detected % 12));
+        return (diff <= 1 || diff >= 11);
     }
 }
 
