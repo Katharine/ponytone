@@ -60,7 +60,7 @@ def party_message(message):
 
         group = Group(f"party-{party.id}")
 
-        all_colours = ['#058fbe', '#d70000', '#00b100', '#a300c4', '#ee7600', '#122b53']
+        all_colours = ['#058fbe', '#d70000', '#00b100', '#a300c4', '#ee7600', '#57578b']
         used_colours = set(x.colour for x in party.members.all())
         for colour in all_colours:
             if colour not in used_colours:
