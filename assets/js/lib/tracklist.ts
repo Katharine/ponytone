@@ -6,6 +6,7 @@ export interface SongIndexEntry {
     id: number;
     title: string;
     artist: string;
+    transcriber: string;
     length: number;
     cover: string;
     duet?: string[];
@@ -63,7 +64,7 @@ export async function getSongData(search?: string): Promise<SongIndexEntry[]> {
     if (search === '') {
         return _songData;
     }
-    return _songData.filter((x) => x.title.toLowerCase().includes(search) || x.artist.toLowerCase().includes(search));
+    return _songData.filter((x) => x.title.toLowerCase().includes(search) || x.artist.toLowerCase().includes(search) || x.transcriber.toLowerCase().includes(search));
 }
 
 export async function getSongMap(): Promise<SongIndexMap> {
