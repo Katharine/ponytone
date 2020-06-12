@@ -81,7 +81,7 @@ WSGI_APPLICATION = 'ponytone.wsgi.application'
 # https://docs.djangoproject.com/en/1.11/ref/settings/#databases
 
 DATABASES = {
-    'default': dj_database_url.config(default='postgres://postgres@db:5432/postgres', conn_max_age=600)
+    'default': dj_database_url.config(default='postgres://postgres:postgres@db:5432/postgres', conn_max_age=600)
 }
 
 # Password validation

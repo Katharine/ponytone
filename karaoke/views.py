@@ -71,6 +71,7 @@ def track_listing(request):
             'id': song.id,
             'title': song.title,
             'artist': song.artist,
+            'transcriber': song.transcriber,
             'length': song.length,
             'cover': song.cover_image,
         }
