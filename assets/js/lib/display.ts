@@ -195,7 +195,7 @@ export class GameDisplay extends EventEmitter {
             }
         });
 
-        if (this.song.video) {
+        if (this.song.video && localStorage['useVideo'] == "true") {
             let start = this.getVideoStartTime();
             // if (start > 0) {
             //     this.videoElement.addEventListener('loadedmetadata', () => {
