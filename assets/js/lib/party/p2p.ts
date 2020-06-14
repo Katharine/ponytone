@@ -42,6 +42,7 @@ export class PeerConnection extends EventEmitter {
     close(): void {
         if (this.connection) {
             this.connection.close();
+            this.emit("close");
         }
     }
 
