@@ -1,7 +1,7 @@
 asgi-redis==1.4.2
 asgiref==1.1.2
 attrs==17.2.0
-autobahn==17.8.1
+autobahn==20.12.3
 Automat==0.6.0
 boto3==1.4.7
 botocore==1.7.7
