@@ -762,6 +762,7 @@ body {
   justify-content: center;
   box-sizing: border-box;
   background: rgba(13, 10, 22, 0.9);
+  z-index: 20;
 }
 
 .part-selector {
