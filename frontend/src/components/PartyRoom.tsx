@@ -26,10 +26,11 @@ interface Member {
 interface PartyRoomProps {
   partyId: string;
   nick: string;
+  mode: 'computer' | 'con';
   onLeave: () => void;
 }
 
-export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) => {
+export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLeave }) => {
   // Navigation & state
   const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'results'>('lobby');
   const [songs, setSongs] = useState<SongItem[]>([]);
@@ -45,6 +46,9 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
   const [isPlaying, setIsPlaying] = useState(false);
   const [loadingSong, setLoadingSong] = useState(false);
   const [scoreList, setScoreList] = useState<{ nick: string; score: number; verified: boolean }[]>([]);
+  // playOnTV: true in 'computer' mode (host is a singer), false in 'con' mode (host is display only).
+  // Stored only in a ref since mode never changes after mount.
+  const playOnTVRef = useRef(mode === 'computer');
 
   // Tournament
   const [showTournament, setShowTournament] = useState(false);
@@ -68,14 +72,67 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
   // Game loop tracking
   const startTimeRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
-  
   // Player sung notes logs: playerID -> array of {time: beat, note: pitch}
   const [playersState, setPlayersState] = useState<PlayerState[]>([]);
   const playersStateRef = useRef<PlayerState[]>([]);
 
+  // Paired companion mics
+  const [pairedMics, setPairedMics] = useState<string[]>([]);
+  const pairedMicsRef = useRef<string[]>([]);
+
+  const membersRef = useRef<{ [channelName: string]: Member }>({});
+  const songsRef = useRef<SongItem[]>([]);
+  const activeSongRef = useRef<Song | null>(null);
+  const activeSongItemRef = useRef<SongItem | null>(null);
+  const selectedPartIndexRef = useRef(0);
+  const gameTimeRef = useRef(0);
+  const isPlayingRef = useRef(false);
+  const spectatorDelayRef = useRef(false);
+  const tournamentMatchCallbackRef = useRef<((s1: number, s2: number) => void) | null>(null);
+
   useEffect(() => {
     playersStateRef.current = playersState;
   }, [playersState]);
+
+  useEffect(() => {
+    pairedMicsRef.current = pairedMics;
+  }, [pairedMics]);
+
+  useEffect(() => {
+    membersRef.current = members;
+  }, [members]);
+
+  useEffect(() => {
+    songsRef.current = songs;
+  }, [songs]);
+
+  useEffect(() => {
+    activeSongRef.current = activeSong;
+  }, [activeSong]);
+
+  useEffect(() => {
+    activeSongItemRef.current = activeSongItem;
+  }, [activeSongItem]);
+
+  useEffect(() => {
+    selectedPartIndexRef.current = selectedPartIndex;
+  }, [selectedPartIndex]);
+
+  useEffect(() => {
+    gameTimeRef.current = gameTime;
+  }, [gameTime]);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  useEffect(() => {
+    spectatorDelayRef.current = spectatorDelay;
+  }, [spectatorDelay]);
+
+  useEffect(() => {
+    tournamentMatchCallbackRef.current = tournamentMatchCallback;
+  }, [tournamentMatchCallback]);
 
   // Connect WebSockets
   useEffect(() => {
@@ -146,8 +203,36 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
         case 'micPitch':
           // Paired companion phone mic sends a MIDI pitch value
           // We map this mic client's target channel, or if it is our companion, it targets us
-          handleCompanionMicPitch(data.origin || '', data.note);
+          handleCompanionMicPitch(data.origin || '', data.target || '', data.note, data.time || 0);
           break;
+        case 'micPaired':
+          if (data.origin) {
+            setPairedMics((prev) => {
+              if (prev.includes(data.origin)) return prev;
+              return [...prev, data.origin];
+            });
+          }
+          break;
+        case 'micDisconnected':
+          if (data.origin) {
+            setPairedMics((prev) => prev.filter((ch) => ch !== data.origin));
+          }
+          break;
+        case 'selectPart': {
+          // A phone player has chosen a part; update the player whose channel matches
+          const isPaired = pairedMicsRef.current.includes(data.origin);
+          // If the mic is paired to us, the assignment targets our own channel
+          const targetChannel = isPaired ? myChannelRef.current : data.origin;
+          setPlayersState((prev) =>
+            prev.map((p) => {
+              if (p.channel === targetChannel) {
+                return { ...p, part: data.part };
+              }
+              return p;
+            })
+          );
+          break;
+        }
         case 'relay':
           // Relayed WebRTC Signaling SDP or ICE candidates
           handleWebRTCSignaling(data.origin, data.message);
@@ -349,7 +434,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
     setSelectedPartIndex(partIdx);
 
     try {
-      const songItem = songs.find((s) => s.id === songId) || null;
+      const songItem = songsRef.current.find((s) => s.id === songId) || null;
       setActiveSongItem(songItem);
 
       // Fetch notes file from S3
@@ -364,29 +449,67 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
       const audioCtx = audioContextRef.current || new (window.AudioContext || (window as any).webkitAudioContext)();
       audioContextRef.current = audioCtx;
 
-      const audioResponse = await fetch(`https://music.ponytone.online/${songId}/music.mp3`);
+      const audioUrl = songObj.mp3 || `https://music.ponytone.online/${songId}/music.mp3`;
+      const audioResponse = await fetch(audioUrl);
       const arrayBuffer = await audioResponse.arrayBuffer();
       const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
       audioBufferRef.current = decodedBuffer;
 
-      // Construct Player states based on connected members
-      const activePlayers: PlayerState[] = Object.entries(members).map(([_ch, m], idx) => ({
-        id: idx,
-        nick: m.nick,
-        colour: m.colour,
-        part: partIdx, // Default to same part index or alternate if duet
-        score: 0,
-        notes: [],
-      }));
+      const hasDuet = !!(songItem && songItem.duet && songItem.duet.length > 0);
+      const numParts = (songItem && songItem.duet) ? songItem.duet.length : 1;
 
-      // Find our own player profile and set default note tracking
+      // Construct Player states based on connected members
+      // Include the TV host if they are playing or have companion mics
+      const isLocalActive = playOnTVRef.current || pairedMicsRef.current.length > 0;
+      const activePlayers: PlayerState[] = [];
+      if (isLocalActive) {
+        const myMember = membersRef.current[myChannelRef.current];
+        activePlayers.push({
+          id: 0,
+          nick: myMember?.nick || nick,
+          colour: myMember?.colour || '#058fbe',
+          part: 0,
+          score: 0,
+          notes: [],
+          channel: myChannelRef.current,
+        });
+      }
+      Object.entries(membersRef.current)
+        .filter(([ch]) => ch !== myChannelRef.current)
+        .forEach(([ch, m], idx) => {
+          activePlayers.push({
+            id: isLocalActive ? idx + 1 : idx,
+            nick: m.nick,
+            colour: m.colour,
+            part: hasDuet ? ((isLocalActive ? idx + 1 : idx) % numParts) : partIdx,
+            score: 0,
+            notes: [],
+            channel: ch,
+          });
+        });
+      // Apply round-robin duet parts
+      if (hasDuet) {
+        activePlayers.forEach((p, i) => { p.part = i % numParts; });
+      }
+
       setPlayersState(activePlayers);
       setLoadingSong(false);
 
-      // Broadcast client is ready to start
+      // Build initial assignments to share with companion mics
+      const initialAssignments: { [channel: string]: number } = {};
+      activePlayers.forEach((p) => {
+        if (p.channel) initialAssignments[p.channel] = p.part;
+      });
+
+      const partNames = songObj.parts.map((_, i) => songItem?.duet?.[i] || `Part ${i + 1}`);
+
+      // Broadcast client is ready to start (with part assignment info for phones)
       socketRef.current?.send(JSON.stringify({
         action: 'trackLoaded',
-        song: songId
+        song: songId,
+        numParts: songObj.parts.length,
+        partNames: partNames,
+        assignments: initialAssignments
       }));
 
     } catch (err) {
@@ -406,7 +529,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
     let delay = (serverStartTimestamp - now) / 1000;
     
     // Add spectator voice alignment delay if checked
-    if (spectatorDelay) {
+    if (spectatorDelayRef.current) {
       delay += 0.15;
     }
 
@@ -424,12 +547,14 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
     }
 
     setIsPlaying(true);
+    isPlayingRef.current = true;
     
     // Run loop
     const frame = () => {
       const elapsedSec = audioContextRef.current!.currentTime - startTimeRef.current;
       const elapsedMs = Math.max(0, elapsedSec * 1000);
       setGameTime(elapsedMs);
+      gameTimeRef.current = elapsedMs;
 
       if (elapsedMs >= audioBufferRef.current!.duration * 1000) {
         handleSongFinish();
@@ -442,9 +567,9 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
 
   // Live pitch detections
   const handlePitchDetected = (note: any) => {
-    if (!isPlaying || !activeSong) return;
+    if (!isPlayingRef.current || !activeSongRef.current) return;
 
-    const currentBeat = activeSong.msToBeats(gameTime);
+    const currentBeat = activeSongRef.current.msToBeats(gameTimeRef.current);
     if (currentBeat < 0) return;
 
     // Send our real-time pitch to other clients
@@ -456,13 +581,13 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
     // Update locally
     setPlayersState((prev) =>
       prev.map((player) => {
-        if (player.nick === nick) {
+        if (player.channel === myChannelRef.current) {
           // Check if it already exists to prevent duplicate beats
           const exists = player.notes.some((n) => n.time === currentBeat);
           if (exists) return player;
           
           const updatedNotes = [...player.notes, { time: currentBeat, note: note.number }];
-          const score = calculateIncrementalScore(activeSong, selectedPartIndex, updatedNotes);
+          const score = calculateIncrementalScore(activeSongRef.current!, player.part, updatedNotes);
 
           return {
             ...player,
@@ -479,7 +604,8 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
   const { start: startMic, stop: stopMic } = useAudioEngine(handlePitchDetected);
 
   useEffect(() => {
-    if (isPlaying && activeTab === 'game') {
+    const hasLocalPlayer = playersStateRef.current.some(p => p.channel === myChannelRef.current);
+    if (isPlaying && activeTab === 'game' && hasLocalPlayer) {
       startMic().catch((e) => console.error('Failed to trigger mic capture:', e));
     } else {
       stopMic();
@@ -510,19 +636,16 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
 
   // Handle updates from other players' WebSocket pitches
   const updatePlayerPitches = (channelName: string, remoteNotes: { time: number; note: number }[]) => {
-    const member = members[channelName];
-    if (!member) return;
-
     setPlayersState((prev) =>
       prev.map((player) => {
-        if (player.nick === member.nick) {
+        if (player.channel === channelName) {
           let updatedNotes = [...player.notes];
           remoteNotes.forEach((rn) => {
             if (!updatedNotes.some((un) => un.time === rn.time)) {
               updatedNotes.push(rn);
             }
           });
-          const score = activeSong ? calculateIncrementalScore(activeSong, player.part, updatedNotes) : 0;
+          const score = activeSongRef.current ? calculateIncrementalScore(activeSongRef.current, player.part, updatedNotes) : 0;
           return {
             ...player,
             notes: updatedNotes,
@@ -535,23 +658,21 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
   };
 
   // Handle companion mic pitch streaming to screen
-  const handleCompanionMicPitch = (_micChannel: string, pitchNumber: number) => {
-    if (!isPlaying || !activeSong) return;
+  const handleCompanionMicPitch = (origin: string, target: string, noteNumber: number, timeMs: number) => {
+    if (!isPlayingRef.current || !activeSongRef.current) return;
 
-    // A companion mic client has streamed their raw pitch note value to us
-    const currentBeat = activeSong.msToBeats(gameTime);
+    const currentBeat = activeSongRef.current.msToBeats(timeMs);
     if (currentBeat < 0) return;
 
-    // Find the member name that owns this companion mic or label it as Phone Mic
-    // In our scenario, the screen is the primary client, which owns all players
+    const targetChannel = target || origin;
+
     setPlayersState((prev) =>
       prev.map((player) => {
-        // Let's assume the companion mic maps to the person who set it up (we assign it to local nick or a designated player)
-        if (player.nick === nick) {
+        if (player.channel === targetChannel) {
           const exists = player.notes.some((n) => n.time === currentBeat);
           if (exists) return player;
-          const updatedNotes = [...player.notes, { time: currentBeat, note: pitchNumber }];
-          const score = calculateIncrementalScore(activeSong, selectedPartIndex, updatedNotes);
+          const updatedNotes = [...player.notes, { time: currentBeat, note: noteNumber }];
+          const score = calculateIncrementalScore(activeSongRef.current!, player.part, updatedNotes);
           return {
             ...player,
             notes: updatedNotes,
@@ -568,48 +689,48 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
     cleanupAudio();
     setActiveTab('results');
     
-    // Find our own final log
-    const selfState = playersStateRef.current.find((p) => p.nick === nick);
-    if (!selfState || !activeSongItem) return;
+    if (!activeSongItemRef.current) return;
 
-    // Submit log for verification and leaderboard entry
-    try {
-      const response = await fetch(`/api/songs/${activeSongItem.id}/highscores`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nick: nick,
-          part: selectedPartIndex,
-          replay_log: selfState.notes.map((n) => ({ time: n.time, note: n.note }))
-        }),
-      });
+    // Send song finished event to socket
+    socketRef.current?.send(JSON.stringify({ action: 'songFinished' }));
 
-      if (response.ok) {
-        // Success verified
-        confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+    const activePlayers = playersStateRef.current;
+    for (const player of activePlayers) {
+      try {
+        const response = await fetch(`/api/songs/${activeSongItemRef.current.id}/highscores`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nick: player.nick,
+            part: player.part,
+            replay_log: player.notes.map((n) => ({ time: n.time, note: n.note }))
+          }),
+        });
+
+        if (response.ok) {
+          confetti({ particleCount: 50, spread: 60 });
+        }
+      } catch (e) {
+        console.error(`Error submitting scoring verification for ${player.nick}:`, e);
       }
+    }
 
-      // Fetch updated high score rankings for this song
-      const scoresRes = await fetch(`/api/songs/${activeSongItem.id}/highscores`);
+    try {
+      const scoresRes = await fetch(`/api/songs/${activeSongItemRef.current.id}/highscores`);
       if (scoresRes.ok) {
         const rankings = await scoresRes.json();
         setScoreList(rankings);
       }
-
-      // If this was a tournament match, invoke the callback
-      if (tournamentMatchCallback) {
-        // Find competitor scores
-        const myFinalScore = selfState.score;
-        // Find other player
-        const otherPlayer = playersStateRef.current.find((p) => p.nick !== nick);
-        const otherScore = otherPlayer ? otherPlayer.score : 0;
-        
-        tournamentMatchCallback(myFinalScore, otherScore);
-        setTournamentMatchCallback(null);
-      }
-
     } catch (e) {
-      console.error('Error submitting scoring verification:', e);
+      console.error('Error fetching rankings:', e);
+    }
+
+    // If this was a tournament match, invoke the callback
+    if (tournamentMatchCallbackRef.current) {
+      const p1 = activePlayers[0]?.score || 0;
+      const p2 = activePlayers[1]?.score || 0;
+      tournamentMatchCallbackRef.current(p1, p2);
+      setTournamentMatchCallback(null);
     }
   };
 
@@ -625,9 +746,35 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
   const triggerStartGame = () => {
     // Starts the game in 3 seconds to allow clock buffers
     const futureTime = fixedTimestamp() + 3000;
+
+    // Build per-channel assignments so phones know their part name
+    const assignments: { [channel: string]: { partIndex: number; partName: string } } = {};
+    playersStateRef.current.forEach((p) => {
+      if (p.channel) {
+        const partName = activeSongItemRef.current && (activeSongItemRef.current.duet?.length ?? 0) > 1
+          ? (activeSongItemRef.current.duet?.[p.part] || `Part ${p.part + 1}`)
+          : 'Solo';
+        assignments[p.channel] = { partIndex: p.part, partName };
+      }
+    });
+
     socketRef.current?.send(JSON.stringify({
       action: 'startGame',
       time: futureTime,
+      assignments,
+    }));
+  };
+
+  /** Called from the TV UI to change a player's assigned duet part. */
+  const handlePartChange = (playerChannel: string, newPartIndex: number) => {
+    setPlayersState((prev) =>
+      prev.map((p) => (p.channel === playerChannel ? { ...p, part: newPartIndex } : p))
+    );
+    // Broadcast the change so phones can reflect it
+    socketRef.current?.send(JSON.stringify({
+      action: 'selectPart',
+      part: newPartIndex,
+      channel: playerChannel,
     }));
   };
 
@@ -700,7 +847,9 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
                       src={`https://music.ponytone.online/${song.id}/${song.cover || 'cover.png'}`}
                       alt=""
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://music.ponytone.online/cover.png';
+                        const img = e.target as HTMLImageElement;
+                        img.onerror = null;
+                        img.src = '/favicon.svg';
                       }}
                       className="song-cover"
                     />
@@ -724,14 +873,45 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
               <h3>
                 <Users size={18} /> Connected Singers ({Object.keys(members).length})
               </h3>
+              
+              {/* Mode indicator – replaces the old toggleable checkbox */}
+              {mode === 'con' ? (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '10px 14px', marginBottom: '16px', borderRadius: '12px',
+                  background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
+                  fontSize: '13px', color: '#c7d2fe',
+                }}>
+                  <Users size={15} style={{ flexShrink: 0, color: '#818cf8' }} />
+                  <span><strong>Con Mode</strong> — TV is display only. All players connect via phone.</span>
+                </div>
+              ) : (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '10px 14px', marginBottom: '16px', borderRadius: '12px',
+                  background: 'rgba(192,132,252,0.06)', border: '1px solid rgba(192,132,252,0.2)',
+                  fontSize: '13px', color: '#e9d5ff',
+                }}>
+                  <Tv size={15} style={{ flexShrink: 0, color: '#c084fc' }} />
+                  <span><strong>Computer Mode</strong> — You are a singer using this device's mic.</span>
+                </div>
+              )}
+
               <div className="members-list">
-                {Object.values(members).map((m) => (
-                  <div key={m.id} className="member-row">
-                    <div className="member-color-indicator" style={{ backgroundColor: m.colour }} />
-                    <span className="member-nick">{m.nick}</span>
-                    {m.nick === nick && <span className="member-you-badge">You</span>}
-                  </div>
-                ))}
+                {Object.entries(members)
+                  .filter(([ch]) => mode === 'con' ? ch !== myChannelRef.current : true)
+                  .map(([ch, m]) => {
+                    const isMe = ch === myChannelRef.current;
+                    return (
+                      <div key={m.id} className="member-row">
+                        <div className="member-color-indicator" style={{ backgroundColor: m.colour }} />
+                        <span className="member-nick">{m.nick}</span>
+                        {isMe && mode === 'computer' && (
+                          <span className="member-you-badge">You</span>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
 
               {/* QR pairing panel */}
@@ -741,7 +921,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
                   <h4>Connect mobile microphone</h4>
                   <p>Open this page on your phone or scan to pair:</p>
                   <code style={{ fontSize: '12px' }}>
-                    {window.location.origin}/mic/{partyId}
+                    {window.location.origin}/mic/{partyId}?target={myChannelRef.current}
                   </code>
                 </div>
               </div>
@@ -816,19 +996,42 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
                 <h3>Song Ready to Start</h3>
                 <p>{activeSongItem?.title} - {activeSongItem?.artist}</p>
                 
-                {/* Part selector */}
-                {activeSongItem?.duet && activeSongItem.duet.length > 0 && (
-                  <div className="part-selector">
-                    <label>Select Vocal Part:</label>
-                    <select
-                      value={selectedPartIndex}
-                      onChange={(e) => setSelectedPartIndex(parseInt(e.target.value))}
-                      className="styled-select"
-                    >
-                      {activeSongItem.duet.map((part, idx) => (
-                        <option key={idx} value={idx}>{part}</option>
+                {/* Per-player duet part assignment (only shown for duet songs with multiple parts) */}
+                {activeSong && activeSong.parts.length > 1 && (
+                  <div style={{
+                    margin: '12px 0 16px 0',
+                    width: '100%',
+                    maxWidth: '400px',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '16px',
+                    padding: '14px 16px',
+                    boxSizing: 'border-box',
+                  }}>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#c084fc', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+                      Assign Duet Parts
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {playersState.map((player) => (
+                        <div key={player.channel} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: player.colour, flexShrink: 0 }} />
+                            {player.nick}
+                          </span>
+                          <select
+                            value={player.part}
+                            onChange={(e) => handlePartChange(player.channel || '', parseInt(e.target.value))}
+                            className="styled-select"
+                            style={{ margin: 0, padding: '5px 10px', fontSize: '13px', flexShrink: 0 }}
+                          >
+                            {activeSong.parts.map((_, pIdx) => {
+                              const partName = activeSongItem?.duet?.[pIdx] || `Part ${pIdx + 1}`;
+                              return <option key={pIdx} value={pIdx}>{partName}</option>;
+                            })}
+                          </select>
+                        </div>
                       ))}
-                    </select>
+                    </div>
                   </div>
                 )}
 
@@ -911,7 +1114,13 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) 
             </table>
           </div>
 
-          <button onClick={() => setActiveTab('lobby')} className="btn btn-primary animate-hover">
+          <button
+            onClick={() => {
+              socketRef.current?.send(JSON.stringify({ action: 'returnedToLobby' }));
+              setActiveTab('lobby');
+            }}
+            className="btn btn-primary animate-hover"
+          >
             Return to Lobby
           </button>
         </div>

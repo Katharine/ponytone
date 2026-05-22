@@ -61,6 +61,7 @@ func HandleWebSocket(c *websocket.Conn) {
 		Nick:          nick,
 		PartyID:       partyID,
 		IsMic:         isMic,
+		IsPlayer:      !isMic, // Set IsPlayer to true if not a mic
 		TargetChannel: targetChan,
 		MemberID:      memberID,
 	}
@@ -95,7 +96,7 @@ func HandleWebSocket(c *websocket.Conn) {
 		empty := len(room.Clients) == 0
 		room.Mu.Unlock()
 
-		if !isMic {
+		if client.IsPlayer {
 			// Delete party member from DB
 			db.DB.Where("channel = ?", channelName).Delete(&models.PartyMember{})
 
@@ -105,6 +106,18 @@ func HandleWebSocket(c *websocket.Conn) {
 				Channel: channelName,
 				Nick:    client.Nick,
 			})
+		}
+
+		if client.TargetChannel != "" {
+			room.Mu.RLock()
+			targetClient, ok := room.Clients[client.TargetChannel]
+			room.Mu.RUnlock()
+			if ok {
+				targetClient.Send(WSMessage{
+					Action: "micDisconnected",
+					Origin: channelName,
+				})
+			}
 		}
 
 		if empty {
@@ -117,6 +130,7 @@ func HandleWebSocket(c *websocket.Conn) {
 	client.Send(WSMessage{
 		Action:  "hello",
 		Channel: channelName,
+		Members: room.GetMemberList(), // Send current members to all clients, including mics
 	})
 
 	// Message loop
@@ -136,6 +150,7 @@ func HandleWebSocket(c *websocket.Conn) {
 			if !isMic {
 				client.Nick = wsMsg.Nick
 				client.Colour = room.GetUnusedColour()
+				client.IsPlayer = true
 
 				// Update database
 				db.DB.Model(&models.PartyMember{}).Where("channel = ?", channelName).Updates(map[string]interface{}{
@@ -160,6 +175,66 @@ func HandleWebSocket(c *websocket.Conn) {
 					Nick:    client.Nick,
 					Colour:  client.Colour,
 					ID:      client.MemberID,
+				})
+			}
+
+		case "registerPlayer":
+			client.Nick = wsMsg.Nick
+			client.Colour = room.GetUnusedColour()
+			client.IsPlayer = true
+
+			// Create connection record in PartyMember DB
+			member := models.PartyMember{
+				ID:            client.MemberID,
+				PartyID:       partyID,
+				Channel:       channelName,
+				Participating: true,
+			}
+			if client.Nick != "" {
+				member.Nick = &client.Nick
+			}
+			if client.Colour != "" {
+				member.Colour = &client.Colour
+			}
+			db.DB.Create(&member)
+
+			// Send current member list & playlist to the registered player
+			client.Send(WSMessage{
+				Action:  "member_list",
+				Members: room.GetMemberList(),
+			})
+			client.Send(WSMessage{
+				Action:   "playlist",
+				Playlist: GetPlaylist(partyID),
+			})
+
+			// Broadcast new member to all room participants
+			room.BroadcastAll(WSMessage{
+				Action:  "new_member",
+				Channel: channelName,
+				Nick:    client.Nick,
+				Colour:  client.Colour,
+				ID:      client.MemberID,
+			})
+
+		case "pairMic":
+			client.TargetChannel = wsMsg.Target
+			client.IsPlayer = false // Mics that are paired are not independent players
+
+			// Send pairing confirmation to the mic
+			client.Send(WSMessage{
+				Action: "micPaired",
+				Target: client.TargetChannel,
+			})
+
+			// Also notify the target client that a mic has paired with them
+			room.Mu.RLock()
+			targetClient, ok := room.Clients[client.TargetChannel]
+			room.Mu.RUnlock()
+			if ok {
+				targetClient.Send(WSMessage{
+					Action: "micPaired",
+					Origin: channelName,
 				})
 			}
 
@@ -208,9 +283,14 @@ func HandleWebSocket(c *websocket.Conn) {
 				Playlist: GetPlaylist(partyID),
 			})
 
-		case "readyToGo", "loadTrack", "trackLoaded", "startGame", "sangNotes", "micPitch":
+		case "loadTrack", "startGame":
+			room.BroadcastAll(wsMsg)
+
+		case "readyToGo", "trackLoaded", "sangNotes", "micPitch", "selectPart":
 			// Broadcast gameplay and pitch data to other room participants
 			// If companion mic, it might target the primary browser screen instead
+			wsMsg.Origin = channelName
+			wsMsg.Target = client.TargetChannel
 			if isMic && client.TargetChannel != "" {
 				room.Mu.RLock()
 				primaryClient, ok := room.Clients[client.TargetChannel]

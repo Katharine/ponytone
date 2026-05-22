@@ -68,7 +68,7 @@ export class Song {
     const part = this.parts[partIndex];
     for (let i = 0; i < part.length - 1; ++i) {
       if (beat >= part[i].start && part[i + 1].start > beat) {
-        if (part[i].end && part[i].end! > beat) {
+        if (part[i].end && beat >= part[i].end!) {
           return null;
         }
         return new SongLine(this, i, part[i]);

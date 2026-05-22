@@ -94,6 +94,11 @@ export function useAudioEngine(onPitch: (note: DetectedNote) => void) {
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const onPitchRef = useRef(onPitch);
+
+  useEffect(() => {
+    onPitchRef.current = onPitch;
+  }, [onPitch]);
 
   const start = async () => {
     if (isActive) return;
@@ -132,7 +137,7 @@ export function useAudioEngine(onPitch: (note: DetectedNote) => void) {
         analyser.getFloatTimeDomainData(buffer);
         const note = getNoteFromBuffer(buffer, audioCtx.sampleRate);
         if (note.number !== null) {
-          onPitch(note);
+          onPitchRef.current(note);
         }
         animationFrameRef.current = requestAnimationFrame(updatePitch);
       };

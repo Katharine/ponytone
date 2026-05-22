@@ -15,6 +15,7 @@ export interface PlayerState {
   part: number;
   score: number;
   notes: { time: number; note: number }[]; // Sung notes
+  channel?: string;
 }
 
 interface CanvasRendererProps {
@@ -453,6 +454,7 @@ export const CanvasRenderer: React.FC<CanvasRendererProps> = ({
       {videoUrl && (
         <video
           ref={videoRef}
+          src={videoUrl}
           style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }}
           muted
           playsInline

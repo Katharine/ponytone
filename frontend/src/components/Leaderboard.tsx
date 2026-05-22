@@ -169,8 +169,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onBack }) => {
                   src={`https://music.ponytone.online/${song.id}/${song.cover || 'cover.png'}`}
                   alt=""
                   onError={(e) => {
-                    // fallback image
-                    (e.target as HTMLImageElement).src = 'https://music.ponytone.online/cover.png';
+                    const img = e.target as HTMLImageElement;
+                    img.onerror = null;
+                    img.src = '/favicon.svg';
                   }}
                   className="song-thumbnail"
                 />

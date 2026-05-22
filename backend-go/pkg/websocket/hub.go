@@ -21,6 +21,7 @@ type Client struct {
 	MemberID      uint
 	PartyID       string
 	IsMic         bool
+	IsPlayer      bool   // True if this client represents an active player/singer
 	TargetChannel string // For phone companion mics
 	Mu            sync.Mutex
 }
@@ -90,6 +91,11 @@ type WSMessage struct {
 	Part     int         `json:"part,omitempty"`
 	Score    int         `json:"score,omitempty"`
 	Notes    interface{} `json:"notes,omitempty"`
+	Note     int         `json:"note"`
+	// Extra relay fields passed through verbatim (assignments, partNames, numParts, etc.)
+	NumParts    int                      `json:"numParts,omitempty"`
+	PartNames   []string                 `json:"partNames,omitempty"`
+	Assignments map[string]interface{}   `json:"assignments,omitempty"`
 }
 
 func (r *Room) BroadcastOthers(senderChannel string, msg interface{}) {
@@ -118,7 +124,7 @@ func (r *Room) GetMemberList() map[string]map[string]interface{} {
 
 	list := make(map[string]map[string]interface{})
 	for ch, client := range r.Clients {
-		if !client.IsMic {
+		if client.IsPlayer {
 			list[ch] = map[string]interface{}{
 				"nick":   client.Nick,
 				"colour": client.Colour,

@@ -8,17 +8,13 @@ function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [currentSearch, setCurrentSearch] = useState(window.location.search);
 
-  // Sync state with browser navigation history
   useEffect(() => {
     const handleLocationChange = () => {
       setCurrentPath(window.location.pathname);
       setCurrentSearch(window.location.search);
     };
-
     window.addEventListener('popstate', handleLocationChange);
-    // Listen to custom navigation events
     window.addEventListener('navigate', handleLocationChange);
-
     return () => {
       window.removeEventListener('popstate', handleLocationChange);
       window.removeEventListener('navigate', handleLocationChange);
@@ -30,33 +26,28 @@ function App() {
     window.dispatchEvent(new Event('navigate'));
   };
 
-  const handleJoinParty = (partyId: string, nick: string) => {
-    navigate(`/party/${partyId}?nick=${encodeURIComponent(nick)}`);
+  const handleJoinParty = (partyId: string, nick: string, mode: 'computer' | 'con') => {
+    navigate(`/party/${partyId}?nick=${encodeURIComponent(nick)}&mode=${mode}`);
   };
 
-  const handleCreateParty = async (nick: string) => {
+  const handleCreateParty = async (nick: string, mode: 'computer' | 'con') => {
     try {
       const response = await fetch('/api/create_party', { method: 'POST' });
       if (!response.ok) throw new Error('Network error');
       const partyId = await response.text();
-      navigate(`/party/${partyId}?nick=${encodeURIComponent(nick)}`);
+      navigate(`/party/${partyId}?nick=${encodeURIComponent(nick)}&mode=${mode}`);
     } catch (err) {
       console.error(err);
       alert('Failed to create new karaoke room. Please try again.');
     }
   };
 
-  const handleJoinAsMic = (partyId: string) => {
-    navigate(`/mic/${partyId}`);
-  };
 
-  // Route matches
   if (currentPath === '/' || currentPath === '') {
     return (
       <Home
         onJoinParty={handleJoinParty}
         onCreateParty={handleCreateParty}
-        onJoinAsMic={handleJoinAsMic}
         onGoToLeaderboard={() => navigate('/leaderboard')}
       />
     );
@@ -65,12 +56,15 @@ function App() {
   if (currentPath.startsWith('/party/')) {
     const partyId = currentPath.substring(7);
     const searchParams = new URLSearchParams(currentSearch);
-    const nick = searchParams.get('nick') || localStorage.getItem('ponytone_nick') || 'Guest Singer';
-    
+    const nick = searchParams.get('nick') || localStorage.getItem('ponytone_nick') || 'Host';
+    const rawMode = searchParams.get('mode');
+    const mode: 'computer' | 'con' = rawMode === 'con' ? 'con' : 'computer';
+
     return (
       <PartyRoom
         partyId={partyId}
         nick={nick}
+        mode={mode}
         onLeave={() => navigate('/')}
       />
     );
@@ -78,50 +72,25 @@ function App() {
 
   if (currentPath.startsWith('/mic/')) {
     const partyId = currentPath.substring(5);
-    const searchParams = new URLSearchParams(currentSearch);
-    const targetChannel = searchParams.get('target') || '';
-
-    return (
-      <CompanionMic
-        partyId={partyId}
-        targetChannel={targetChannel}
-      />
-    );
+    return <CompanionMic partyId={partyId} />;
   }
 
   if (currentPath === '/leaderboard') {
-    return (
-      <Leaderboard
-        onBack={() => navigate('/')}
-      />
-    );
+    return <Leaderboard onBack={() => navigate('/')} />;
   }
 
-  // 404 Fallback
+  // 404
   return (
     <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      background: '#121214',
-      color: '#fff',
-      fontFamily: 'sans-serif'
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', minHeight: '100vh', background: '#121214',
+      color: '#fff', fontFamily: 'sans-serif'
     }}>
       <h1>404: Page Not Found</h1>
       <p style={{ color: '#aaa', marginBottom: '24px' }}>The singing arena you are looking for does not exist.</p>
       <button
         onClick={() => navigate('/')}
-        style={{
-          padding: '12px 24px',
-          borderRadius: '8px',
-          background: '#c084fc',
-          color: '#000',
-          fontWeight: 'bold',
-          border: 'none',
-          cursor: 'pointer'
-        }}
+        style={{ padding: '12px 24px', borderRadius: '8px', background: '#c084fc', color: '#000', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
       >
         Go Home
       </button>
