@@ -137,7 +137,9 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   // Connect WebSockets
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/party/${partyId}?nick=${encodeURIComponent(nick)}`;
+    const wsUrl = mode === 'con'
+      ? `${protocol}//${window.location.host}/ws/party/${partyId}?display=true`
+      : `${protocol}//${window.location.host}/ws/party/${partyId}?nick=${encodeURIComponent(nick)}`;
     
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
@@ -251,7 +253,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       cleanupAudio();
       cleanupWebRTC();
     };
-  }, [partyId, nick]);
+  }, [partyId, nick, mode]);
 
   // Setup WebRTC connections to newly joined members
   useEffect(() => {

@@ -25,6 +25,7 @@ func HandleWebSocket(c *websocket.Conn) {
 	partyID := c.Params("party_id")
 	nick := c.Query("nick")
 	isMic := c.Query("mic") == "true"
+	isDisplay := c.Query("display") == "true"
 	targetChan := c.Query("target")
 
 	// Generate a unique channel name for this client
@@ -33,11 +34,11 @@ func HandleWebSocket(c *websocket.Conn) {
 	room := GlobalHub.GetOrCreateRoom(partyID)
 
 	// Check room capacity (e.g. limit to 32 to support larger tournament lobbies)
-	if !isMic {
+	if !isMic && !isDisplay {
 		room.Mu.RLock()
 		activeCount := 0
 		for _, cl := range room.Clients {
-			if !cl.IsMic {
+			if !cl.IsMic && !cl.IsDisplay {
 				activeCount++
 			}
 		}
@@ -61,13 +62,14 @@ func HandleWebSocket(c *websocket.Conn) {
 		Nick:          nick,
 		PartyID:       partyID,
 		IsMic:         isMic,
-		IsPlayer:      !isMic, // Set IsPlayer to true if not a mic
+		IsPlayer:      !isMic && !isDisplay, // Set IsPlayer to true if not a mic and not a display
+		IsDisplay:     isDisplay,
 		TargetChannel: targetChan,
 		MemberID:      memberID,
 	}
 
-	// 1. If not a mic, write connection record to database
-	if !isMic {
+	// 1. If not a mic and not a display, write connection record to database
+	if !isMic && !isDisplay {
 		member := models.PartyMember{
 			ID:            memberID,
 			PartyID:       partyID,
@@ -147,7 +149,7 @@ func HandleWebSocket(c *websocket.Conn) {
 
 		switch wsMsg.Action {
 		case "hello":
-			if !isMic {
+			if !isMic && !client.IsDisplay {
 				client.Nick = wsMsg.Nick
 				client.Colour = room.GetUnusedColour()
 				client.IsPlayer = true
@@ -175,6 +177,16 @@ func HandleWebSocket(c *websocket.Conn) {
 					Nick:    client.Nick,
 					Colour:  client.Colour,
 					ID:      client.MemberID,
+				})
+			} else if client.IsDisplay {
+				// Send current member list & playlist to the display client
+				client.Send(WSMessage{
+					Action:  "member_list",
+					Members: room.GetMemberList(),
+				})
+				client.Send(WSMessage{
+					Action:   "playlist",
+					Playlist: GetPlaylist(partyID),
 				})
 			}
 

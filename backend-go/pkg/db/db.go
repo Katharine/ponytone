@@ -63,5 +63,13 @@ func InitDB() (*gorm.DB, error) {
 	}
 
 	log.Println("Database auto-migrations completed successfully.")
+	
+	// Clear stale party members from the database on startup
+	if err := DB.Exec("DELETE FROM karaoke_partymember").Error; err != nil {
+		log.Printf("Failed to clear stale party members: %v", err)
+	} else {
+		log.Println("Cleared stale party members from database.")
+	}
+
 	return DB, nil
 }

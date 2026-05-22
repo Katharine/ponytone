@@ -22,6 +22,7 @@ type Client struct {
 	PartyID       string
 	IsMic         bool
 	IsPlayer      bool   // True if this client represents an active player/singer
+	IsDisplay     bool   // True if this client is a display (Con Mode host)
 	TargetChannel string // For phone companion mics
 	Mu            sync.Mutex
 }
