@@ -295,7 +295,20 @@ func HandleWebSocket(c *websocket.Conn) {
 				Playlist: GetPlaylist(partyID),
 			})
 
-		case "loadTrack", "startGame":
+		case "loadTrack":
+			// Remove the loaded song from the playlist queue
+			db.DB.Where("party_id = ? AND song_id = ?", partyID, wsMsg.Song).Delete(&models.Playlist{})
+
+			// Broadcast updated playlist to all clients
+			room.BroadcastAll(WSMessage{
+				Action:   "playlist",
+				Playlist: GetPlaylist(partyID),
+			})
+
+			// Relay the loadTrack command to all clients
+			room.BroadcastAll(wsMsg)
+
+		case "startGame":
 			room.BroadcastAll(wsMsg)
 
 		case "readyToGo", "trackLoaded", "sangNotes", "micPitch", "selectPart":
