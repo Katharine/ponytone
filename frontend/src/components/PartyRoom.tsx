@@ -1,0 +1,948 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Play, Plus, Trash2, Users, Volume2, Music, PhoneCall, PhoneOff, Award, Tv } from 'lucide-react';
+import { Song } from '../utils/ultrastar';
+import { CanvasRenderer } from './CanvasRenderer';
+import type { PlayerState } from './CanvasRenderer';
+import { useAudioEngine } from '../hooks/useAudioEngine';
+import { syncTime, fixedTimestamp } from '../utils/ntp';
+import { Tournament } from './Tournament';
+import confetti from 'canvas-confetti';
+
+interface SongItem {
+  id: number;
+  title: string;
+  artist: string;
+  length: number;
+  cover: string;
+  duet?: string[];
+}
+
+interface Member {
+  nick: string;
+  colour: string;
+  id: number;
+}
+
+interface PartyRoomProps {
+  partyId: string;
+  nick: string;
+  onLeave: () => void;
+}
+
+export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, onLeave }) => {
+  // Navigation & state
+  const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'results'>('lobby');
+  const [songs, setSongs] = useState<SongItem[]>([]);
+  const [playlist, setPlaylist] = useState<number[]>([]);
+  const [members, setMembers] = useState<{ [channelName: string]: Member }>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Game states
+  const [activeSong, setActiveSong] = useState<Song | null>(null);
+  const [activeSongItem, setActiveSongItem] = useState<SongItem | null>(null);
+  const [selectedPartIndex, setSelectedPartIndex] = useState(0);
+  const [gameTime, setGameTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [loadingSong, setLoadingSong] = useState(false);
+  const [scoreList, setScoreList] = useState<{ nick: string; score: number; verified: boolean }[]>([]);
+
+  // Tournament
+  const [showTournament, setShowTournament] = useState(false);
+  const [tournamentMatchCallback, setTournamentMatchCallback] = useState<((s1: number, s2: number) => void) | null>(null);
+
+  // Audio / WebRTC Voice Settings
+  const [isVoiceSharing, setIsVoiceSharing] = useState(false);
+  const [voiceVolume, setVoiceVolume] = useState(0.8);
+  const [spectatorDelay, setSpectatorDelay] = useState(false); // 150ms delay for alignment
+  
+  // WebSockets and Refs
+  const socketRef = useRef<WebSocket | null>(null);
+  const myChannelRef = useRef<string>('');
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioBufferRef = useRef<AudioBuffer | null>(null);
+  const audioNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const peerConnectionsRef = useRef<{ [channelName: string]: RTCPeerConnection }>({});
+  const remoteAudioElementsRef = useRef<{ [channelName: string]: HTMLAudioElement }>({});
+  
+  // Game loop tracking
+  const startTimeRef = useRef<number>(0);
+  const animationFrameRef = useRef<number | null>(null);
+  
+  // Player sung notes logs: playerID -> array of {time: beat, note: pitch}
+  const [playersState, setPlayersState] = useState<PlayerState[]>([]);
+  const playersStateRef = useRef<PlayerState[]>([]);
+
+  useEffect(() => {
+    playersStateRef.current = playersState;
+  }, [playersState]);
+
+  // Connect WebSockets
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/party/${partyId}?nick=${encodeURIComponent(nick)}`;
+    
+    const ws = new WebSocket(wsUrl);
+    socketRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('Connected to Karaoke Lobby WebSocket');
+      // Perform initial handshake hello
+      ws.send(JSON.stringify({
+        action: 'hello',
+        nick: nick,
+      }));
+      
+      // Sync clock offsets
+      syncTime();
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('WebSocket Action:', data.action);
+
+      switch (data.action) {
+        case 'hello':
+          myChannelRef.current = data.channel;
+          break;
+        case 'member_list':
+          setMembers(data.members || {});
+          break;
+        case 'playlist':
+          setPlaylist(data.playlist || []);
+          break;
+        case 'new_member':
+          setMembers((prev) => ({
+            ...prev,
+            [data.channel]: { nick: data.nick, colour: data.colour, id: data.id }
+          }));
+          break;
+        case 'member_left':
+          setMembers((prev) => {
+            const updated = { ...prev };
+            delete updated[data.channel];
+            return updated;
+          });
+          // Cleanup WebRTC connection
+          if (peerConnectionsRef.current[data.channel]) {
+            peerConnectionsRef.current[data.channel].close();
+            delete peerConnectionsRef.current[data.channel];
+          }
+          if (remoteAudioElementsRef.current[data.channel]) {
+            remoteAudioElementsRef.current[data.channel].remove();
+            delete remoteAudioElementsRef.current[data.channel];
+          }
+          break;
+        case 'loadTrack':
+          handleLoadTrack(data.song, data.part || 0);
+          break;
+        case 'startGame':
+          handleStartGame(data.time);
+          break;
+        case 'sangNotes':
+          // Another room participant shares their real-time note matches
+          updatePlayerPitches(data.channel, data.notes);
+          break;
+        case 'micPitch':
+          // Paired companion phone mic sends a MIDI pitch value
+          // We map this mic client's target channel, or if it is our companion, it targets us
+          handleCompanionMicPitch(data.origin || '', data.note);
+          break;
+        case 'relay':
+          // Relayed WebRTC Signaling SDP or ICE candidates
+          handleWebRTCSignaling(data.origin, data.message);
+          break;
+      }
+    };
+
+    // Load available catalog
+    fetch('/api/tracklist')
+      .then((res) => res.json())
+      .then((data) => setSongs(data))
+      .catch((err) => console.error('Failed to load songs', err));
+
+    return () => {
+      ws.close();
+      cleanupAudio();
+      cleanupWebRTC();
+    };
+  }, [partyId, nick]);
+
+  // Setup WebRTC connections to newly joined members
+  useEffect(() => {
+    if (!isVoiceSharing) return;
+
+    Object.keys(members).forEach((channelName) => {
+      if (channelName === myChannelRef.current) return;
+      if (!peerConnectionsRef.current[channelName]) {
+        createPeerConnection(channelName);
+      }
+    });
+  }, [members, isVoiceSharing]);
+
+  // Clean audio source node
+  const cleanupAudio = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (audioNodeRef.current) {
+      try {
+        audioNodeRef.current.stop();
+      } catch (e) {}
+      audioNodeRef.current.disconnect();
+      audioNodeRef.current = null;
+    }
+    setIsPlaying(false);
+  };
+
+  const cleanupWebRTC = () => {
+    Object.values(peerConnectionsRef.current).forEach((pc) => pc.close());
+    peerConnectionsRef.current = {};
+    Object.values(remoteAudioElementsRef.current).forEach((el) => el.remove());
+    remoteAudioElementsRef.current = {};
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+  };
+
+  // WebRTC Peer Connection logic
+  const createPeerConnection = async (targetChannel: string) => {
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+
+    peerConnectionsRef.current[targetChannel] = pc;
+
+    // Add local audio track if sharing
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => {
+        pc.addTrack(track, localStreamRef.current!);
+      });
+    }
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate && socketRef.current) {
+        socketRef.current.send(JSON.stringify({
+          action: 'relay',
+          target: targetChannel,
+          message: { type: 'candidate', candidate: e.candidate }
+        }));
+      }
+    };
+
+    pc.ontrack = (e) => {
+      // Create audio element for remote stream
+      if (remoteAudioElementsRef.current[targetChannel]) {
+        remoteAudioElementsRef.current[targetChannel].srcObject = e.streams[0];
+      } else {
+        const audio = document.createElement('audio');
+        audio.srcObject = e.streams[0];
+        audio.autoplay = true;
+        audio.volume = voiceVolume;
+        remoteAudioElementsRef.current[targetChannel] = audio;
+        document.body.appendChild(audio);
+      }
+    };
+
+    // Decide initiator (lexicographical comparison)
+    if (myChannelRef.current < targetChannel) {
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socketRef.current?.send(JSON.stringify({
+          action: 'relay',
+          target: targetChannel,
+          message: offer
+        }));
+      } catch (err) {
+        console.error('Error creating WebRTC offer:', err);
+      }
+    }
+  };
+
+  const handleWebRTCSignaling = async (senderChannel: string, message: any) => {
+    let pc = peerConnectionsRef.current[senderChannel];
+    if (!pc) {
+      // If we don't have connection yet, initialize one
+      await createPeerConnection(senderChannel);
+      pc = peerConnectionsRef.current[senderChannel];
+    }
+
+    if (message.type === 'offer') {
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(message));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socketRef.current?.send(JSON.stringify({
+          action: 'relay',
+          target: senderChannel,
+          message: answer
+        }));
+      } catch (err) {
+        console.error('Error answering WebRTC offer:', err);
+      }
+    } else if (message.type === 'answer') {
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(message));
+      } catch (err) {
+        console.error('Error setting remote description:', err);
+      }
+    } else if (message.type === 'candidate') {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+      } catch (err) {
+        console.error('Error adding ICE candidate:', err);
+      }
+    }
+  };
+
+  const toggleVoiceSharing = async () => {
+    if (isVoiceSharing) {
+      cleanupWebRTC();
+      setIsVoiceSharing(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStreamRef.current = stream;
+        setIsVoiceSharing(true);
+        // Force establish connections
+        Object.keys(members).forEach((channelName) => {
+          if (channelName === myChannelRef.current) return;
+          createPeerConnection(channelName);
+        });
+      } catch (err) {
+        console.error('Failed to get local audio for voice chat:', err);
+        alert('Could not access microphone for voice chat sharing.');
+      }
+    }
+  };
+
+  useEffect(() => {
+    // Sync remote audio element volumes
+    Object.values(remoteAudioElementsRef.current).forEach((audio) => {
+      audio.volume = voiceVolume;
+    });
+  }, [voiceVolume]);
+
+  // Queue logic
+  const addToQueue = (songId: number) => {
+    socketRef.current?.send(JSON.stringify({
+      action: 'addToQueue',
+      song: songId
+    }));
+  };
+
+  const removeFromQueue = (songId: number) => {
+    socketRef.current?.send(JSON.stringify({
+      action: 'removeFromQueue',
+      song: songId
+    }));
+  };
+
+  // Launch Game Gameplay Setup
+  const handleLoadTrack = async (songId: number, partIdx: number) => {
+    cleanupAudio();
+    setLoadingSong(true);
+    setActiveTab('game');
+    setSelectedPartIndex(partIdx);
+
+    try {
+      const songItem = songs.find((s) => s.id === songId) || null;
+      setActiveSongItem(songItem);
+
+      // Fetch notes file from S3
+      const response = await fetch(`https://music.ponytone.online/${songId}/notes.txt`);
+      if (!response.ok) throw new Error('Notes file could not be downloaded.');
+      const notesText = await response.text();
+
+      const songObj = new Song(`https://music.ponytone.online/${songId}`, notesText);
+      setActiveSong(songObj);
+
+      // Fetch audio file
+      const audioCtx = audioContextRef.current || new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = audioCtx;
+
+      const audioResponse = await fetch(`https://music.ponytone.online/${songId}/music.mp3`);
+      const arrayBuffer = await audioResponse.arrayBuffer();
+      const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      audioBufferRef.current = decodedBuffer;
+
+      // Construct Player states based on connected members
+      const activePlayers: PlayerState[] = Object.entries(members).map(([_ch, m], idx) => ({
+        id: idx,
+        nick: m.nick,
+        colour: m.colour,
+        part: partIdx, // Default to same part index or alternate if duet
+        score: 0,
+        notes: [],
+      }));
+
+      // Find our own player profile and set default note tracking
+      setPlayersState(activePlayers);
+      setLoadingSong(false);
+
+      // Broadcast client is ready to start
+      socketRef.current?.send(JSON.stringify({
+        action: 'trackLoaded',
+        song: songId
+      }));
+
+    } catch (err) {
+      console.error('Error loading game track:', err);
+      alert('Failed to load song files. Returning to lobby.');
+      setActiveTab('lobby');
+      setLoadingSong(false);
+    }
+  };
+
+  // Start Sync Playback
+  const handleStartGame = (serverStartTimestamp: number) => {
+    if (!audioContextRef.current || !audioBufferRef.current) return;
+
+    // Compute localized startup delay
+    const now = fixedTimestamp();
+    let delay = (serverStartTimestamp - now) / 1000;
+    
+    // Add spectator voice alignment delay if checked
+    if (spectatorDelay) {
+      delay += 0.15;
+    }
+
+    const source = audioContextRef.current.createBufferSource();
+    source.buffer = audioBufferRef.current;
+    source.connect(audioContextRef.current.destination);
+    audioNodeRef.current = source;
+
+    if (delay > 0) {
+      source.start(audioContextRef.current.currentTime + delay);
+      startTimeRef.current = audioContextRef.current.currentTime + delay;
+    } else {
+      source.start(0, -delay);
+      startTimeRef.current = audioContextRef.current.currentTime + delay;
+    }
+
+    setIsPlaying(true);
+    
+    // Run loop
+    const frame = () => {
+      const elapsedSec = audioContextRef.current!.currentTime - startTimeRef.current;
+      const elapsedMs = Math.max(0, elapsedSec * 1000);
+      setGameTime(elapsedMs);
+
+      if (elapsedMs >= audioBufferRef.current!.duration * 1000) {
+        handleSongFinish();
+      } else {
+        animationFrameRef.current = requestAnimationFrame(frame);
+      }
+    };
+    animationFrameRef.current = requestAnimationFrame(frame);
+  };
+
+  // Live pitch detections
+  const handlePitchDetected = (note: any) => {
+    if (!isPlaying || !activeSong) return;
+
+    const currentBeat = activeSong.msToBeats(gameTime);
+    if (currentBeat < 0) return;
+
+    // Send our real-time pitch to other clients
+    socketRef.current?.send(JSON.stringify({
+      action: 'sangNotes',
+      notes: [{ time: currentBeat, note: note.number }]
+    }));
+
+    // Update locally
+    setPlayersState((prev) =>
+      prev.map((player) => {
+        if (player.nick === nick) {
+          // Check if it already exists to prevent duplicate beats
+          const exists = player.notes.some((n) => n.time === currentBeat);
+          if (exists) return player;
+          
+          const updatedNotes = [...player.notes, { time: currentBeat, note: note.number }];
+          const score = calculateIncrementalScore(activeSong, selectedPartIndex, updatedNotes);
+
+          return {
+            ...player,
+            notes: updatedNotes,
+            score: score,
+          };
+        }
+        return player;
+      })
+    );
+  };
+
+  // Run native microphone autocorrelation hook
+  const { start: startMic, stop: stopMic } = useAudioEngine(handlePitchDetected);
+
+  useEffect(() => {
+    if (isPlaying && activeTab === 'game') {
+      startMic().catch((e) => console.error('Failed to trigger mic capture:', e));
+    } else {
+      stopMic();
+    }
+  }, [isPlaying, activeTab]);
+
+  // Real-time helper to map score in client
+  const calculateIncrementalScore = (song: Song, partIdx: number, sungNotes: { time: number; note: number }[]): number => {
+    if (!song.parts[partIdx] || sungNotes.length === 0) return 0;
+    const notesList = song.parts[partIdx].flatMap((l) => l.notes);
+    if (notesList.length === 0) return 0;
+
+    let hits = 0;
+    sungNotes.forEach((sn) => {
+      const match = notesList.find((n) => sn.time >= n.beat && sn.time < n.beat + n.length);
+      if (match) {
+        const diff = Math.abs((sn.note % 12) - (match.pitch % 12));
+        const matchesPitch = diff <= 1 || diff >= 11;
+        if (matchesPitch || match.type === 'F') {
+          hits += match.type === '*' ? 2 : 1;
+        }
+      }
+    });
+
+    const totalWeight = notesList.reduce((sum, n) => sum + (n.type === '*' ? n.length * 2 : n.length), 0);
+    return totalWeight > 0 ? Math.round((hits / totalWeight) * 10000) : 0;
+  };
+
+  // Handle updates from other players' WebSocket pitches
+  const updatePlayerPitches = (channelName: string, remoteNotes: { time: number; note: number }[]) => {
+    const member = members[channelName];
+    if (!member) return;
+
+    setPlayersState((prev) =>
+      prev.map((player) => {
+        if (player.nick === member.nick) {
+          let updatedNotes = [...player.notes];
+          remoteNotes.forEach((rn) => {
+            if (!updatedNotes.some((un) => un.time === rn.time)) {
+              updatedNotes.push(rn);
+            }
+          });
+          const score = activeSong ? calculateIncrementalScore(activeSong, player.part, updatedNotes) : 0;
+          return {
+            ...player,
+            notes: updatedNotes,
+            score: score,
+          };
+        }
+        return player;
+      })
+    );
+  };
+
+  // Handle companion mic pitch streaming to screen
+  const handleCompanionMicPitch = (_micChannel: string, pitchNumber: number) => {
+    if (!isPlaying || !activeSong) return;
+
+    // A companion mic client has streamed their raw pitch note value to us
+    const currentBeat = activeSong.msToBeats(gameTime);
+    if (currentBeat < 0) return;
+
+    // Find the member name that owns this companion mic or label it as Phone Mic
+    // In our scenario, the screen is the primary client, which owns all players
+    setPlayersState((prev) =>
+      prev.map((player) => {
+        // Let's assume the companion mic maps to the person who set it up (we assign it to local nick or a designated player)
+        if (player.nick === nick) {
+          const exists = player.notes.some((n) => n.time === currentBeat);
+          if (exists) return player;
+          const updatedNotes = [...player.notes, { time: currentBeat, note: pitchNumber }];
+          const score = calculateIncrementalScore(activeSong, selectedPartIndex, updatedNotes);
+          return {
+            ...player,
+            notes: updatedNotes,
+            score: score,
+          };
+        }
+        return player;
+      })
+    );
+  };
+
+  // Finish song gameplay
+  const handleSongFinish = async () => {
+    cleanupAudio();
+    setActiveTab('results');
+    
+    // Find our own final log
+    const selfState = playersStateRef.current.find((p) => p.nick === nick);
+    if (!selfState || !activeSongItem) return;
+
+    // Submit log for verification and leaderboard entry
+    try {
+      const response = await fetch(`/api/songs/${activeSongItem.id}/highscores`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nick: nick,
+          part: selectedPartIndex,
+          replay_log: selfState.notes.map((n) => ({ time: n.time, note: n.note }))
+        }),
+      });
+
+      if (response.ok) {
+        // Success verified
+        confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+      }
+
+      // Fetch updated high score rankings for this song
+      const scoresRes = await fetch(`/api/songs/${activeSongItem.id}/highscores`);
+      if (scoresRes.ok) {
+        const rankings = await scoresRes.json();
+        setScoreList(rankings);
+      }
+
+      // If this was a tournament match, invoke the callback
+      if (tournamentMatchCallback) {
+        // Find competitor scores
+        const myFinalScore = selfState.score;
+        // Find other player
+        const otherPlayer = playersStateRef.current.find((p) => p.nick !== nick);
+        const otherScore = otherPlayer ? otherPlayer.score : 0;
+        
+        tournamentMatchCallback(myFinalScore, otherScore);
+        setTournamentMatchCallback(null);
+      }
+
+    } catch (e) {
+      console.error('Error submitting scoring verification:', e);
+    }
+  };
+
+  // Initiate gameplay triggers
+  const triggerLoadTrack = (songId: number) => {
+    socketRef.current?.send(JSON.stringify({
+      action: 'loadTrack',
+      song: songId,
+      part: selectedPartIndex,
+    }));
+  };
+
+  const triggerStartGame = () => {
+    // Starts the game in 3 seconds to allow clock buffers
+    const futureTime = fixedTimestamp() + 3000;
+    socketRef.current?.send(JSON.stringify({
+      action: 'startGame',
+      time: futureTime,
+    }));
+  };
+
+  const handleStartTournamentMatch = (_p1: string, _p2: string, callback: (s1: number, s2: number) => void) => {
+    setTournamentMatchCallback(() => callback);
+    setShowTournament(false);
+    // Find a random song or first song in playlist
+    if (playlist.length > 0) {
+      triggerLoadTrack(playlist[0]);
+    } else if (songs.length > 0) {
+      triggerLoadTrack(songs[0].id);
+    } else {
+      alert('Add songs to the playlist queue first!');
+    }
+  };
+
+  const filteredSongsList = songs.filter((s) =>
+    s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.artist.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="party-room-container">
+      {/* Top Navbar */}
+      <header className="party-navbar glass-panel">
+        <div className="nav-brand">
+          <Music size={24} style={{ color: '#c084fc' }} />
+          <span>Ponytone Lobby: <strong>{partyId}</strong></span>
+        </div>
+        
+        <div className="nav-controls">
+          {/* Voice Chat share settings */}
+          <button
+            onClick={toggleVoiceSharing}
+            className={`btn-nav ${isVoiceSharing ? 'active' : ''}`}
+            title={isVoiceSharing ? 'Mute Voice' : 'Share Vocal Voice (WebRTC)'}
+          >
+            {isVoiceSharing ? <PhoneCall size={18} style={{ color: '#4ade80' }} /> : <PhoneOff size={18} />}
+            <span>Voice Chat</span>
+          </button>
+
+          <button onClick={() => setShowTournament(true)} className="btn-nav">
+            <Award size={18} />
+            <span>Tournament</span>
+          </button>
+
+          <button onClick={onLeave} className="btn-leave">
+            Leave Room
+          </button>
+        </div>
+      </header>
+
+      {/* Main interface switcher */}
+      {activeTab === 'lobby' && (
+        <div className="lobby-layout-grid">
+          {/* Left panel: Song selection and playlist */}
+          <div className="lobby-left-column">
+            <section className="glass-panel search-section">
+              <input
+                type="text"
+                placeholder="Search catalog by title or artist..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="styled-input"
+              />
+              <div className="song-catalog-scroll">
+                {filteredSongsList.map((song) => (
+                  <div key={song.id} className="song-list-item">
+                    <img
+                      src={`https://music.ponytone.online/${song.id}/${song.cover || 'cover.png'}`}
+                      alt=""
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://music.ponytone.online/cover.png';
+                      }}
+                      className="song-cover"
+                    />
+                    <div className="song-metadata">
+                      <span className="title">{song.title}</span>
+                      <span className="artist">{song.artist}</span>
+                    </div>
+                    <button onClick={() => addToQueue(song.id)} className="btn-add">
+                      <Plus size={16} /> Add to Queue
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          {/* Right panel: Active members & Current queue */}
+          <div className="lobby-right-column">
+            {/* Connected players */}
+            <section className="glass-panel members-section">
+              <h3>
+                <Users size={18} /> Connected Singers ({Object.keys(members).length})
+              </h3>
+              <div className="members-list">
+                {Object.values(members).map((m) => (
+                  <div key={m.id} className="member-row">
+                    <div className="member-color-indicator" style={{ backgroundColor: m.colour }} />
+                    <span className="member-nick">{m.nick}</span>
+                    {m.nick === nick && <span className="member-you-badge">You</span>}
+                  </div>
+                ))}
+              </div>
+
+              {/* QR pairing panel */}
+              <div className="qr-pairing-box">
+                <SmartphoneIcon size={24} style={{ color: '#c084fc' }} />
+                <div>
+                  <h4>Connect mobile microphone</h4>
+                  <p>Open this page on your phone or scan to pair:</p>
+                  <code style={{ fontSize: '12px' }}>
+                    {window.location.origin}/mic/{partyId}
+                  </code>
+                </div>
+              </div>
+            </section>
+
+            {/* Current Playlist Queue */}
+            <section className="glass-panel queue-section">
+              <h3>Playlist Queue</h3>
+              {playlist.length === 0 ? (
+                <p className="empty-queue-msg">The playlist is empty. Add songs to get started!</p>
+              ) : (
+                <div className="queue-list-scroll">
+                  {playlist.map((songId, index) => {
+                    const song = songs.find((s) => s.id === songId);
+                    if (!song) return null;
+                    return (
+                      <div key={`${songId}-${index}`} className="queue-row">
+                        <span className="number">#{index + 1}</span>
+                        <div className="song-detail">
+                          <span className="title">{song.title}</span>
+                          <span className="artist">{song.artist}</span>
+                        </div>
+                        <div className="actions">
+                          {index === 0 && (
+                            <button onClick={() => triggerLoadTrack(songId)} className="btn btn-primary compact">
+                              Play Now
+                            </button>
+                          )}
+                          <button onClick={() => removeFromQueue(songId)} className="btn-remove">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'game' && (
+        <div className="gameplay-arena">
+          {/* Main Karaoke Screen rendering Canvas */}
+          <div className="game-screen-wrapper">
+            {activeSong && (
+              <CanvasRenderer
+                song={activeSong}
+                players={playersState}
+                currentTime={gameTime}
+                duration={audioBufferRef.current ? audioBufferRef.current.duration * 1000 : 0}
+                width={1000}
+                height={562} // 16:9 ratio
+                videoUrl={activeSong.video}
+                posterUrl={activeSong.background}
+                isPlaying={isPlaying}
+              />
+            )}
+
+            {/* Waiting/Loading details */}
+            {loadingSong && (
+              <div className="glass-panel screen-loading-overlay">
+                <div className="spinner" />
+                <h3>Preparing song, download tracks...</h3>
+              </div>
+            )}
+
+            {/* Gameplay overlay controls */}
+            {!isPlaying && !loadingSong && (
+              <div className="glass-panel screen-waiting-overlay">
+                <h3>Song Ready to Start</h3>
+                <p>{activeSongItem?.title} - {activeSongItem?.artist}</p>
+                
+                {/* Part selector */}
+                {activeSongItem?.duet && activeSongItem.duet.length > 0 && (
+                  <div className="part-selector">
+                    <label>Select Vocal Part:</label>
+                    <select
+                      value={selectedPartIndex}
+                      onChange={(e) => setSelectedPartIndex(parseInt(e.target.value))}
+                      className="styled-select"
+                    >
+                      {activeSongItem.duet.map((part, idx) => (
+                        <option key={idx} value={idx}>{part}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <button onClick={triggerStartGame} className="btn btn-primary animate-hover">
+                  <Play size={18} /> Start Sync Playback
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Settings / WebRTC adjustment toolbar */}
+          <div className="glass-panel gameplay-toolbar">
+            <div className="setting-control">
+              <Volume2 size={16} />
+              <label>Voice Chat Vol:</label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={voiceVolume}
+                onChange={(e) => setVoiceVolume(parseFloat(e.target.value))}
+                className="styled-slider"
+              />
+            </div>
+
+            <div className="setting-control checkbox">
+              <input
+                type="checkbox"
+                id="spectatorDelay"
+                checked={spectatorDelay}
+                onChange={(e) => setSpectatorDelay(e.target.checked)}
+              />
+              <label htmlFor="spectatorDelay">
+                <Tv size={14} /> Spectator Sync Delay (+150ms voice alignment)
+              </label>
+            </div>
+
+            <button onClick={handleSongFinish} className="btn-abort">
+              Abort Song
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'results' && (
+        <div className="glass-panel results-screen animate-fade-in">
+          <h2>Singing Battle Results!</h2>
+          <div className="results-podium">
+            {playersState.sort((a, b) => b.score - a.score).map((player, idx) => (
+              <div key={player.nick} className="podium-card animate-slide-up" style={{ animationDelay: `${idx * 0.2}s` }}>
+                <span className="rank">#{idx + 1}</span>
+                <span className="name" style={{ color: player.colour }}>{player.nick}</span>
+                <span className="score">{player.score.toLocaleString()} pts</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="song-leaderboard-results">
+            <h3>Top Verified Leaderboard</h3>
+            <table className="styled-table compact">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Singer</th>
+                  <th>Score</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scoreList.map((score, idx) => (
+                  <tr key={idx}>
+                    <td>#{idx + 1}</td>
+                    <td>{score.nick}</td>
+                    <td>{score.score.toLocaleString()}</td>
+                    <td>{score.verified ? <span className="badge badge-verified">Verified</span> : 'Unverified'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <button onClick={() => setActiveTab('lobby')} className="btn btn-primary animate-hover">
+            Return to Lobby
+          </button>
+        </div>
+      )}
+
+      {/* Tournament Modal Overlay */}
+      {showTournament && (
+        <Tournament
+          initialPlayers={Object.values(members).map((m) => m.nick)}
+          onStartMatch={handleStartTournamentMatch}
+          onClose={() => setShowTournament(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+const SmartphoneIcon = ({ size = 20, style }: { size?: number; style?: React.CSSProperties }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={style}
+  >
+    <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+    <path d="M12 18h.01" />
+  </svg>
+);
