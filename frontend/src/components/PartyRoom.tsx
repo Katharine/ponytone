@@ -7,6 +7,7 @@ import { useAudioEngine } from '../hooks/useAudioEngine';
 import { syncTime, fixedTimestamp } from '../utils/ntp';
 import { Tournament } from './Tournament';
 import confetti from 'canvas-confetti';
+import QRCode from 'qrcode';
 
 interface SongItem {
   id: number;
@@ -37,6 +38,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   const [playlist, setPlaylist] = useState<number[]>([]);
   const [members, setMembers] = useState<{ [channelName: string]: Member }>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   
   // Game states
   const [activeSong, setActiveSong] = useState<Song | null>(null);
@@ -166,6 +168,27 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
         });
     }
   }, [mode]);
+
+  // Generate local QR Code for Con Mode mobile pairing
+  useEffect(() => {
+    if (mode === 'con') {
+      const pairingUrl = `${window.location.origin}/mic/${partyId}`;
+      QRCode.toDataURL(pairingUrl, {
+        width: 150,
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      })
+      .then((url) => {
+        setQrCodeUrl(url);
+      })
+      .catch((err) => {
+        console.error('Failed to generate QR code:', err);
+      });
+    }
+  }, [partyId, mode]);
 
   // Connect WebSockets
   useEffect(() => {
@@ -967,11 +990,17 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
                     border: '1px solid rgba(255, 255, 255, 0.1)'
                   }}>
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/mic/${partyId}`)}`}
-                      alt="QR Code to join party room"
-                      style={{ width: '150px', height: '150px', display: 'block' }}
-                    />
+                    {qrCodeUrl ? (
+                      <img
+                        src={qrCodeUrl}
+                        alt="QR Code to join party room"
+                        style={{ width: '150px', height: '150px', display: 'block' }}
+                      />
+                    ) : (
+                      <div style={{ width: '150px', height: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontSize: '14px', fontWeight: 'bold' }}>
+                        Generating...
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
