@@ -114,16 +114,25 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       const ctx = audioContextRef.current;
       console.log('Global resume interaction fired. Context:', ctx ? ctx.state : 'null');
       if (ctx) {
-        // Unlock browser audio hardware by playing a dummy silent buffer
+        // Unlock browser audio hardware by playing a short, low-volume sine wave beep synchronously
         try {
-          const buffer = ctx.createBuffer(1, 1, 22050);
-          const source = ctx.createBufferSource();
-          source.buffer = buffer;
-          source.connect(ctx.destination);
-          source.start(0);
-          console.log('Played dummy silent audio buffer for unlock.');
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, ctx.currentTime);
+          
+          // Play a very soft, short beep (volume 0.002, duration 0.05s) to activate output hardware
+          gain.gain.setValueAtTime(0.002, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.05);
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          
+          osc.start(0);
+          osc.stop(ctx.currentTime + 0.05);
+          console.log('Played dummy low-volume beep to unlock hardware destination.');
         } catch (e) {
-          console.warn('Failed to play dummy audio for unlock:', e);
+          console.warn('Failed to play unlock beep:', e);
         }
 
         if (ctx.state === 'suspended') {
@@ -763,11 +772,14 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       console.log('Audio buffer source created and connected to destination.');
 
       if (delay > 0) {
-        source.start(audioContextRef.current.currentTime + delay);
-        startTimeRef.current = audioContextRef.current.currentTime + delay;
+        const playTime = audioContextRef.current.currentTime + delay;
+        source.start(playTime);
+        startTimeRef.current = playTime;
+        console.log('Scheduled source.start in future at playTime:', playTime, 'Current time:', audioContextRef.current.currentTime);
       } else {
         source.start(0, -delay);
         startTimeRef.current = audioContextRef.current.currentTime + delay;
+        console.log('Scheduled source.start immediately with offset:', -delay, 'Current time:', audioContextRef.current.currentTime);
       }
     } catch (err) {
       console.error('Error starting audio source in handleStartGame:', err);
