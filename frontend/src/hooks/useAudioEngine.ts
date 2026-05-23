@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { PitchDetector } from 'pitchy';
 
 const MIN_RMS = 0.01;
-const GOOD_ENOUGH_CORRELATION = 0.9;
+const CLARITY_THRESHOLD = 0.9;
 
 export interface DetectedNote {
   freq: number | null;
@@ -12,48 +13,21 @@ export interface DetectedNote {
 
 const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
+// Cache of PitchDetector instances by buffer size to prevent GC garbage collection allocation during real-time loops
+const cachedDetectors: { [size: number]: PitchDetector<Float32Array> } = {};
+
+function getDetector(size: number): PitchDetector<Float32Array> {
+  if (!cachedDetectors[size]) {
+    cachedDetectors[size] = PitchDetector.forFloat32Array(size);
+  }
+  return cachedDetectors[size];
+}
+
 export function autoCorrelate(buffer: Float32Array, sampleRate: number): number | null {
-  let rms = 0;
-  for (let i = 0; i < buffer.length; i++) {
-    rms += buffer[i] * buffer[i];
-  }
-  rms = Math.sqrt(rms / buffer.length);
-  if (rms < MIN_RMS) {
-    return null;
-  }
-
-  const maxSamples = Math.floor(buffer.length / 2);
-  const periodLength = maxSamples - 2;
-  const correlations = new Array(maxSamples);
-  let bestPeriod = 0;
-  let bestCorrelation = 0;
-  let lastCorrelation = 1;
-
-  for (let i = 0; i < periodLength; i++) {
-    const period = i + 2;
-    let correlation = 0;
-    for (let j = 0; j < maxSamples; j++) {
-      correlation += Math.abs(buffer[j] - buffer[j + period]);
-    }
-    correlation = 1 - (correlation / maxSamples);
-    correlations[period] = correlation;
-
-    if (lastCorrelation > correlation) {
-      // descending
-    } else if (correlation > bestCorrelation) {
-      bestCorrelation = correlation;
-      bestPeriod = period;
-    }
-    lastCorrelation = correlation;
-  }
-
-  if (bestCorrelation >= GOOD_ENOUGH_CORRELATION) {
-    let shift = 0;
-    if (bestPeriod + 1 < maxSamples && correlations[bestPeriod + 1] && correlations[bestPeriod - 1]) {
-      shift = (correlations[bestPeriod + 1] - correlations[bestPeriod - 1]) / bestCorrelation;
-      shift = shift * 8;
-    }
-    return sampleRate / (bestPeriod + shift);
+  const detector = getDetector(buffer.length);
+  const [pitch, clarity] = detector.findPitch(buffer, sampleRate);
+  if (clarity >= CLARITY_THRESHOLD) {
+    return pitch;
   }
   return null;
 }
@@ -124,20 +98,37 @@ export function useAudioEngine(onPitch: (note: DetectedNote) => void) {
       biquad.Q.value = 0.5;
 
       const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 2048; // gives buffer of length 2048, max samples = 1024
+      analyser.fftSize = 2048; // gives buffer of length 2048
       
       source.connect(biquad);
       biquad.connect(analyser);
 
       const buffer = new Float32Array(analyser.fftSize);
+      const detector = getDetector(analyser.fftSize);
       
       setIsActive(true);
 
       const updatePitch = () => {
         analyser.getFloatTimeDomainData(buffer);
-        const note = getNoteFromBuffer(buffer, audioCtx.sampleRate);
-        if (note.number !== null) {
-          onPitchRef.current(note);
+        
+        let rms = 0;
+        for (let i = 0; i < buffer.length; i++) {
+          rms += buffer[i] * buffer[i];
+        }
+        rms = Math.sqrt(rms / buffer.length);
+
+        if (rms >= MIN_RMS) {
+          const [freq, clarity] = detector.findPitch(buffer, audioCtx.sampleRate);
+          if (clarity >= CLARITY_THRESHOLD) {
+            const number = noteNumberFromPitch(freq);
+            const note: DetectedNote = {
+              freq,
+              number,
+              name: noteNameFromNumber(number),
+              offset: centsOffFromPitch(freq, number)
+            };
+            onPitchRef.current(note);
+          }
         }
         animationFrameRef.current = requestAnimationFrame(updatePitch);
       };

@@ -14,6 +14,7 @@
     "canvas-confetti": "^1.9.4",
     "events": "^3.3.0",
     "lucide-react": "^1.16.0",
+    "pitchy": "^4.1.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
