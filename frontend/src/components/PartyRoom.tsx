@@ -42,6 +42,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
 
   const [playersReadyState, setPlayersReadyState] = useState<{ [channel: string]: boolean }>({});
   const [playersLoadProgress, setPlayersLoadProgress] = useState<{ [channel: string]: number }>({});
+  const [audioContextState, setAudioContextState] = useState<string>('suspended');
   
   // Game states
   const [activeSong, setActiveSong] = useState<Song | null>(null);
@@ -81,6 +82,44 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Initialize AudioContext early to bypass browser autoplay blocks
+  useEffect(() => {
+    const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioCtxClass) {
+      const audioCtx = new AudioCtxClass();
+      audioContextRef.current = audioCtx;
+      setAudioContextState(audioCtx.state);
+
+      const handleStateChange = () => {
+        setAudioContextState(audioCtx.state);
+      };
+      audioCtx.addEventListener('statechange', handleStateChange);
+
+      return () => {
+        audioCtx.removeEventListener('statechange', handleStateChange);
+      };
+    }
+  }, []);
+
+  // Global handler to resume audio context on any user interaction
+  useEffect(() => {
+    const resume = () => {
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().then(() => {
+          setAudioContextState(audioContextRef.current!.state);
+        }).catch((err) => {
+          console.warn('Failed to resume audio context:', err);
+        });
+      }
+    };
+    window.addEventListener('click', resume);
+    window.addEventListener('keydown', resume);
+    return () => {
+      window.removeEventListener('click', resume);
+      window.removeEventListener('keydown', resume);
+    };
   }, []);
   
   // WebSockets and Refs
@@ -910,6 +949,32 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
 
   return (
     <div className="party-room-container">
+      {audioContextState === 'suspended' && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 9999,
+          background: 'rgba(239, 68, 68, 0.9)',
+          border: '1px solid rgba(239, 68, 68, 0.4)',
+          borderRadius: '16px',
+          padding: '16px 24px',
+          color: '#fff',
+          fontWeight: 'bold',
+          fontSize: '15px',
+          boxShadow: '0 8px 32px rgba(239, 68, 68, 0.3)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          animation: 'pulse 2s infinite',
+          cursor: 'pointer',
+        }}>
+          <span style={{ fontSize: '20px' }}>🔊</span>
+          <span>Click anywhere on this screen to enable audio playback & start synchronization!</span>
+        </div>
+      )}
       {/* Top Navbar */}
       <header className="party-navbar glass-panel">
         <div className="nav-brand">
