@@ -43,6 +43,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   const [playersReadyState, setPlayersReadyState] = useState<{ [channel: string]: boolean }>({});
   const [playersLoadProgress, setPlayersLoadProgress] = useState<{ [channel: string]: number }>({});
   const [audioContextState, setAudioContextState] = useState<string>('suspended');
+  const [audioInteractive, setAudioInteractive] = useState(false);
   
   // Game states
   const [activeSong, setActiveSong] = useState<Song | null>(null);
@@ -106,12 +107,30 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   // Global handler to resume audio context on any user interaction
   useEffect(() => {
     const resume = () => {
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().then(() => {
-          setAudioContextState(audioContextRef.current!.state);
-        }).catch((err) => {
-          console.warn('Failed to resume audio context:', err);
-        });
+      const ctx = audioContextRef.current;
+      if (ctx) {
+        // Unlock browser audio hardware by playing a dummy silent buffer
+        try {
+          const buffer = ctx.createBuffer(1, 1, 22050);
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          source.start(0);
+        } catch (e) {
+          console.warn('Failed to play dummy audio for unlock:', e);
+        }
+
+        if (ctx.state === 'suspended') {
+          ctx.resume().then(() => {
+            setAudioContextState(ctx.state);
+            setAudioInteractive(true);
+          }).catch((err) => {
+            console.warn('Failed to resume audio context:', err);
+          });
+        } else {
+          setAudioContextState(ctx.state);
+          setAudioInteractive(true);
+        }
       }
     };
     window.addEventListener('click', resume);
@@ -694,6 +713,13 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   const handleStartGame = (serverStartTimestamp: number) => {
     if (!audioContextRef.current || !audioBufferRef.current) return;
 
+    // Ensure audio context is running (safeguard for async WS trigger)
+    if (audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume().catch((err) => {
+        console.warn('Failed to resume audio context in handleStartGame:', err);
+      });
+    }
+
     // Compute localized startup delay
     const now = fixedTimestamp();
     let delay = (serverStartTimestamp - now) / 1000;
@@ -949,7 +975,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
 
   return (
     <div className="party-room-container">
-      {audioContextState === 'suspended' && (
+      {(!audioInteractive || audioContextState === 'suspended') && (
         <div style={{
           position: 'fixed',
           top: '20px',
