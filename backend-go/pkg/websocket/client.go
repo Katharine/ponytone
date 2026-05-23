@@ -311,6 +311,12 @@ func HandleWebSocket(c *websocket.Conn) {
 		case "startGame":
 			room.BroadcastAll(wsMsg)
 
+		case "ping":
+			// Reply with pong to verify connection is alive
+			client.Send(WSMessage{
+				Action: "pong",
+			})
+
 		case "readyToGo", "trackLoaded", "sangNotes", "micPitch", "selectPart":
 			// Broadcast gameplay and pitch data to other room participants
 			// If companion mic, it might target the primary browser screen instead

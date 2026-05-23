@@ -94,6 +94,7 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
 
     let isDisposed = false;
     let reconnectTimeoutId: any = null;
+    let pingIntervalId: any = null;
 
     const connect = () => {
       if (isDisposed) return;
@@ -112,6 +113,13 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
         }
         setStatus('connected');
         console.log('WebSocket connected as companion mic');
+
+        // Start ping keep-alive interval
+        pingIntervalId = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ action: 'ping' }));
+          }
+        }, 20000);
 
         // Automatically re-register or re-pair if we had an active state
         if (isRegisteredRef.current && registeredNickRef.current) {
@@ -210,6 +218,7 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
       };
 
       ws.onclose = () => {
+        if (pingIntervalId) clearInterval(pingIntervalId);
         if (isDisposed) return;
         setStatus('disconnected');
         
@@ -229,6 +238,7 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
     return () => {
       isDisposed = true;
       if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId);
+      if (pingIntervalId) clearInterval(pingIntervalId);
       if (socketRef.current) socketRef.current.close();
       stopAudioEngine();
     };

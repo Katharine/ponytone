@@ -200,6 +200,8 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
 
+    let pingIntervalId: any = null;
+
     ws.onopen = () => {
       console.log('Connected to Karaoke Lobby WebSocket');
       // Perform initial handshake hello
@@ -210,6 +212,13 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       
       // Sync clock offsets
       syncTime();
+
+      // Start ping keep-alive interval
+      pingIntervalId = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ action: 'ping' }));
+        }
+      }, 20000);
     };
 
     ws.onmessage = (event) => {
@@ -314,6 +323,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       .catch((err) => console.error('Failed to load songs', err));
 
     return () => {
+      if (pingIntervalId) clearInterval(pingIntervalId);
       ws.close();
       cleanupAudio();
       cleanupWebRTC();
