@@ -81,6 +81,10 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
   }, [pairedTargetChannel]);
 
   useEffect(() => {
+    // Apply layout resets to document and body for the companion mic page
+    document.documentElement.classList.add('mic-page-html');
+    document.body.classList.add('mic-page-body');
+
     // Initial NTP clock synchronization
     syncTime();
 
@@ -233,6 +237,10 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
       if (pingIntervalId) clearInterval(pingIntervalId);
       if (socketRef.current) socketRef.current.close();
       stopAudioEngine();
+
+      // Clean up layout resets on document and body
+      document.documentElement.classList.remove('mic-page-html');
+      document.body.classList.remove('mic-page-body');
     };
   }, [partyId, initialTarget]);
 
@@ -277,20 +285,26 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
   const showSetupScreen = !isRegistered && !isPaired;
 
   return (
-    <div style={{
+    <div className="mobile-app-container" style={{
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0f0c1b, #201335, #0c0813)',
+      minHeight: '100dvh',
+      width: '100%',
       color: '#fff',
-      padding: '24px',
       fontFamily: FONT,
       boxSizing: 'border-box'
     }}>
-      {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+      <div style={{
+        margin: 'auto 0',
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        boxSizing: 'border-box'
+      }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
           <Smartphone size={32} style={{ color: '#c084fc' }} />
           <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold', background: 'linear-gradient(to right, #c084fc, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
@@ -349,7 +363,7 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
           boxSizing: 'border-box'
         }}>
           {/* Join as Player Form */}
-          <div style={{ marginBottom: '32px' }}>
+          <div style={{ marginBottom: '20px' }}>
             <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px', color: '#c084fc' }}>
               <User size={18} /> Join as New Player
             </h3>
@@ -370,7 +384,7 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
                   border: '1px solid rgba(255, 255, 255, 0.15)',
                   background: 'rgba(0, 0, 0, 0.2)',
                   color: '#fff',
-                  fontSize: '14px',
+                  fontSize: '16px',
                   outline: 'none',
                   fontFamily: FONT
                 }}
@@ -417,7 +431,7 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
                 No active players in lobby.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+              <div className="singer-pair-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
                 {Object.entries(members)
                   .sort(([chA], [chB]) => {
                     if (chA === initialTarget) return -1;
@@ -503,7 +517,7 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
               <h4 style={{ margin: '0 0 12px 0', fontSize: '15px', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Select Duet Part
               </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="duet-part-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto', paddingRight: '4px' }}>
                 {Array.from({ length: duetPartsCount }).map((_, idx) => {
                   const partName = duetPartNames[idx] || `Part ${idx + 1}`;
                   const isSelected = selectedPartIndex === idx;
@@ -611,6 +625,7 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
           </button>
         </div>
       )}
+      </div>
 
       {/* CSS Animation styles */}
       <style>{`

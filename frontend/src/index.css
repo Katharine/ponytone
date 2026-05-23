@@ -18,15 +18,53 @@
   --border-radius: 16px;
 }
 
+html {
+  background-color: #08050e;
+  min-height: 100%;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: var(--bg-gradient);
-  background-attachment: fixed;
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  background: var(--bg-gradient) no-repeat center center fixed;
+  background-size: cover;
+}
+
+.mic-page-html {
+  min-height: 100dvh !important;
+  background: linear-gradient(to bottom, #0d0a16 0%, #150f24 50%, #08050e 100%) no-repeat center center fixed !important;
+  background-size: cover !important;
+  background-color: #0d0a16 !important; /* Top gradient color for status bar */
+  overscroll-behavior: none !important;
+}
+
+.mic-page-body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  min-height: 100dvh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  background: transparent !important;
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior: none !important;
+}
+
+.mobile-app-container {
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  padding-left: calc(16px + env(safe-area-inset-left));
+  padding-right: calc(16px + env(safe-area-inset-right));
+}
+
+.singer-pair-list,
+.duet-part-list {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Custom Scrollbar */
@@ -133,7 +171,7 @@ body {
   padding: 12px 16px;
   border-radius: 10px;
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 16px;
   outline: none;
   transition: all 0.2s ease;
   width: 100%;
