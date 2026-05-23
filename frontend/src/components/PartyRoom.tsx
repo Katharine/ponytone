@@ -1280,7 +1280,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
                 height={dimensions.height}
                 videoUrl={activeSong.video}
                 posterUrl={activeSong.background}
-                isPlaying={isPlaying}
+                isPlaying={isPlaying && countdown === null}
               />
             )}
 
