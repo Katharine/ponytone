@@ -49,6 +49,9 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   const [activeSong, setActiveSong] = useState<Song | null>(null);
   const [activeSongItem, setActiveSongItem] = useState<SongItem | null>(null);
   const [selectedPartIndex, setSelectedPartIndex] = useState(0);
+  const [lobbySongParts, setLobbySongParts] = useState<string[]>([]);
+  const [lobbyAssignments, setLobbyAssignments] = useState<{ [channel: string]: number }>({});
+
   const [gameTime, setGameTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [loadingSong, setLoadingSong] = useState(false);
@@ -184,6 +187,10 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   const activeSongRef = useRef<Song | null>(null);
   const activeSongItemRef = useRef<SongItem | null>(null);
   const selectedPartIndexRef = useRef(0);
+  const lobbySongPartsRef = useRef<string[]>([]);
+  const lobbyAssignmentsRef = useRef<{ [channel: string]: number }>({});
+  const lastFetchedSongIdRef = useRef<number | null>(null);
+
   const gameTimeRef = useRef(0);
   const isPlayingRef = useRef(false);
   const spectatorDelayRef = useRef(false);
@@ -216,6 +223,65 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   useEffect(() => {
     selectedPartIndexRef.current = selectedPartIndex;
   }, [selectedPartIndex]);
+
+  useEffect(() => {
+    lobbySongPartsRef.current = lobbySongParts;
+  }, [lobbySongParts]);
+
+  useEffect(() => {
+    lobbyAssignmentsRef.current = lobbyAssignments;
+  }, [lobbyAssignments]);
+
+  useEffect(() => {
+    if (playlist.length > 0) {
+      const topSongId = playlist[0];
+      if (topSongId !== lastFetchedSongIdRef.current) {
+        lastFetchedSongIdRef.current = topSongId;
+        setLobbyAssignments({}); // Reset assignments since it's a new top song!
+        
+        const fetchSongParts = async () => {
+          try {
+            const response = await fetch(`https://music.ponytone.online/${topSongId}/notes.txt`);
+            if (!response.ok) throw new Error('Notes file could not be fetched.');
+            const notesText = await response.text();
+            const songObj = new Song(`https://music.ponytone.online/${topSongId}`, notesText);
+            const parts = songObj.parts.map((_, i) => songObj.partNames[i] || `Part ${i + 1}`);
+            
+            if (parts.length > 1) {
+              setLobbySongParts(parts);
+              socketRef.current?.send(JSON.stringify({
+                action: 'lobbySongParts',
+                partNames: parts,
+              }));
+            } else {
+              setLobbySongParts([]);
+              socketRef.current?.send(JSON.stringify({
+                action: 'lobbySongParts',
+                partNames: [],
+              }));
+            }
+          } catch (err) {
+            console.error('Error fetching/parsing lobby song parts:', err);
+            setLobbySongParts([]);
+            socketRef.current?.send(JSON.stringify({
+              action: 'lobbySongParts',
+              partNames: [],
+            }));
+          }
+        };
+        fetchSongParts();
+      }
+    } else {
+      lastFetchedSongIdRef.current = null;
+      setLobbySongParts([]);
+      setLobbyAssignments({});
+      socketRef.current?.send(JSON.stringify({
+        action: 'lobbySongParts',
+        partNames: [],
+      }));
+    }
+  }, [playlist]);
+
 
   useEffect(() => {
     gameTimeRef.current = gameTime;
@@ -328,7 +394,15 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
               return p;
             })
           );
+          // Re-broadcast lobbySongParts so the new member gets it immediately
+          if (lobbySongPartsRef.current.length > 0) {
+            socketRef.current?.send(JSON.stringify({
+              action: 'lobbySongParts',
+              partNames: lobbySongPartsRef.current,
+            }));
+          }
           break;
+
         case 'member_left':
           setMembers((prev) => {
             const updated = { ...prev };
@@ -358,8 +432,17 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
         case 'returnedToLobby':
           setPlayersReadyState({});
           setPlayersLoadProgress({});
+          setLobbyAssignments({});
           setActiveTab('lobby');
+          // Re-broadcast lobbySongParts if we have them
+          if (lobbySongPartsRef.current.length > 0) {
+            socketRef.current?.send(JSON.stringify({
+              action: 'lobbySongParts',
+              partNames: lobbySongPartsRef.current,
+            }));
+          }
           break;
+
         case 'startGame':
           handleStartGame(data.time);
           break;
@@ -387,9 +470,14 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
           break;
         case 'selectPart': {
           // A phone player has chosen a part; update the player whose channel matches
-          const isPaired = pairedMicsRef.current.includes(data.origin);
-          // If the mic is paired to us, the assignment targets our own channel
-          const targetChannel = isPaired ? myChannelRef.current : data.origin;
+          const isPaired = pairedMicsRef.current.includes(data.origin || data.target);
+          const targetChannel = isPaired ? myChannelRef.current : (data.channel || data.origin);
+          if (targetChannel) {
+            setLobbyAssignments((prev) => ({
+              ...prev,
+              [targetChannel]: data.part
+            }));
+          }
           setPlayersState((prev) =>
             prev.map((p) => {
               if (p.channel === targetChannel) {
@@ -400,6 +488,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
           );
           break;
         }
+
         case 'relay':
           // Relayed WebRTC Signaling SDP or ICE candidates
           handleWebRTCSignaling(data.origin, data.message);
@@ -671,13 +760,22 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       // Include the TV host if they are playing or have companion mics
       const isLocalActive = playOnTVRef.current || pairedMicsRef.current.length > 0;
       const activePlayers: PlayerState[] = [];
+
+      const getAssignedPart = (ch: string, idx: number) => {
+        if (!hasDuet) return 0;
+        if (lobbyAssignmentsRef.current[ch] !== undefined) {
+          return lobbyAssignmentsRef.current[ch];
+        }
+        return idx % numParts;
+      };
+
       if (isLocalActive) {
         const myMember = membersRef.current[myChannelRef.current];
         activePlayers.push({
           id: 0,
           nick: myMember?.nick || nick,
           colour: myMember?.colour || '#058fbe',
-          part: 0,
+          part: getAssignedPart(myChannelRef.current, 0),
           score: 0,
           notes: [],
           channel: myChannelRef.current,
@@ -686,20 +784,18 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       Object.entries(membersRef.current)
         .filter(([ch]) => ch !== myChannelRef.current)
         .forEach(([ch, m], idx) => {
+          const playerIdx = isLocalActive ? idx + 1 : idx;
           activePlayers.push({
-            id: isLocalActive ? idx + 1 : idx,
+            id: playerIdx,
             nick: m.nick,
             colour: m.colour,
-            part: hasDuet ? ((isLocalActive ? idx + 1 : idx) % numParts) : partIdx,
+            part: getAssignedPart(ch, playerIdx),
             score: 0,
             notes: [],
             channel: ch,
           });
         });
-      // Apply round-robin duet parts
-      if (hasDuet) {
-        activePlayers.forEach((p, i) => { p.part = i % numParts; });
-      }
+
 
       setPlayersState(activePlayers);
       setLoadingSong(false);
@@ -1001,6 +1097,19 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
     }));
   };
 
+  const handleLobbyPartChange = (playerChannel: string, newPartIndex: number) => {
+    setLobbyAssignments((prev) => ({
+      ...prev,
+      [playerChannel]: newPartIndex,
+    }));
+    socketRef.current?.send(JSON.stringify({
+      action: 'selectPart',
+      part: newPartIndex,
+      channel: playerChannel,
+    }));
+  };
+
+
   const handleStartTournamentMatch = (_p1: string, _p2: string, callback: (s1: number, s2: number) => void) => {
     setTournamentMatchCallback(() => callback);
     setShowTournament(false);
@@ -1167,6 +1276,18 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
                             <span className="member-you-badge">You</span>
                           )}
                         </div>
+                        {lobbySongParts.length > 1 && (
+                          <select
+                            value={lobbyAssignments[ch] !== undefined ? lobbyAssignments[ch] : 0}
+                            onChange={(e) => handleLobbyPartChange(ch, parseInt(e.target.value))}
+                            className="styled-select"
+                            style={{ margin: '0 8px', padding: '4px 8px', fontSize: '12px' }}
+                          >
+                            {lobbySongParts.map((partName, pIdx) => (
+                              <option key={pIdx} value={pIdx}>{partName}</option>
+                            ))}
+                          </select>
+                        )}
                         <span className={`ready-status-badge ${isReady ? 'ready' : 'not-ready'}`} style={{
                           fontSize: '11px',
                           padding: '3px 8px',

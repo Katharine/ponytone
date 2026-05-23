@@ -199,6 +199,10 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
             }
             break;
           }
+          case 'lobbySongParts':
+            setDuetPartsCount(data.partNames ? data.partNames.length : 0);
+            setDuetPartNames(data.partNames || []);
+            break;
           case 'selectPart': {
             const myCh = myChannelRef.current;
             const pairedCh = pairedTargetChannelRef.current;
@@ -752,6 +756,57 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
                       );
                     })}
                   </div>
+
+                  {duetPartsCount > 1 && (
+                    <div style={{
+                      width: '100%',
+                      borderRadius: '16px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      padding: '16px',
+                      textAlign: 'center',
+                      backdropFilter: 'blur(10px)',
+                      boxSizing: 'border-box',
+                      marginBottom: '20px',
+                    }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '15px', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Select Duet Part
+                      </h4>
+                      <div className="duet-part-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto', paddingRight: '4px' }}>
+                        {Array.from({ length: duetPartsCount }).map((_, idx) => {
+                          const partName = duetPartNames[idx] || `Part ${idx + 1}`;
+                          const isSelected = selectedPartIndex === idx;
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                setSelectedPartIndex(idx);
+                                socketRef.current?.send(JSON.stringify({
+                                  action: 'selectPart',
+                                  part: idx,
+                                  channel: myChannelRef.current,
+                                }));
+                              }}
+                              style={{
+                                padding: '12px',
+                                borderRadius: '10px',
+                                border: isSelected ? '1px solid #c084fc' : '1px solid rgba(255, 255, 255, 0.1)',
+                                background: isSelected ? 'rgba(192, 132, 252, 0.2)' : 'rgba(255, 255, 255, 0.02)',
+                                color: '#fff',
+                                fontWeight: isSelected ? 'bold' : 'normal',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                fontFamily: FONT,
+                                fontSize: '14px',
+                              }}
+                            >
+                              {partName} {isSelected && '✓'}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   <button
                     onClick={() => {

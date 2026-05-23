@@ -228,6 +228,17 @@ func HandleWebSocket(c *websocket.Conn) {
 				Playlist: GetPlaylist(partyID),
 			})
 
+			room.Mu.Lock()
+			currentPartNamesForReg := room.PartNames
+			room.Mu.Unlock()
+			if len(currentPartNamesForReg) > 0 {
+				client.Send(WSMessage{
+					Action:    "lobbySongParts",
+					PartNames: currentPartNamesForReg,
+				})
+			}
+
+
 			// Broadcast new member to all room participants
 			room.BroadcastAll(WSMessage{
 				Action:  "new_member",
@@ -249,6 +260,17 @@ func HandleWebSocket(c *websocket.Conn) {
 				Action: "micPaired",
 				Target: client.TargetChannel,
 			})
+
+			room.Mu.Lock()
+			currentPartNamesForPair := room.PartNames
+			room.Mu.Unlock()
+			if len(currentPartNamesForPair) > 0 {
+				client.Send(WSMessage{
+					Action:    "lobbySongParts",
+					PartNames: currentPartNamesForPair,
+				})
+			}
+
 
 			// Also notify the target client that a mic has paired with them
 			room.Mu.RLock()
@@ -367,6 +389,8 @@ func HandleWebSocket(c *websocket.Conn) {
 		case "returnedToLobby":
 			room.Mu.Lock()
 			room.GameStarted = false
+			room.Assignments = nil
+			room.PartNames = nil
 			for _, cl := range room.Clients {
 				cl.IsReady = false
 				cl.LoadProgress = 0
@@ -374,6 +398,7 @@ func HandleWebSocket(c *websocket.Conn) {
 			room.Mu.Unlock()
 			broadcastReadyStates(room)
 			room.BroadcastAll(wsMsg)
+
 
 		case "loadProgress":
 			room.Mu.Lock()
@@ -434,6 +459,15 @@ func HandleWebSocket(c *websocket.Conn) {
 			} else {
 				room.BroadcastOthers(channelName, wsMsg)
 			}
+
+		case "lobbySongParts":
+			room.Mu.Lock()
+			room.PartNames = wsMsg.PartNames
+			room.Mu.Unlock()
+
+			wsMsg.Origin = channelName
+			room.BroadcastOthers(channelName, wsMsg)
+
 
 		case "sangNotes", "micPitch":
 			// Broadcast gameplay and pitch data to other room participants
