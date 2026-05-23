@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Plus, Trash2, Users, Volume2, Music, PhoneCall, PhoneOff, Award, Tv, Settings, X } from 'lucide-react';
+import { Plus, Trash2, Users, Volume2, Music, PhoneCall, PhoneOff, Award, Tv, Settings, X } from 'lucide-react';
 import { Song } from '../utils/ultrastar';
 import { CanvasRenderer } from './CanvasRenderer';
 import type { PlayerState } from './CanvasRenderer';
@@ -39,6 +39,9 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   const [members, setMembers] = useState<{ [channelName: string]: Member }>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+
+  const [playersReadyState, setPlayersReadyState] = useState<{ [channel: string]: boolean }>({});
+  const [playersLoadProgress, setPlayersLoadProgress] = useState<{ [channel: string]: number }>({});
   
   // Game states
   const [activeSong, setActiveSong] = useState<Song | null>(null);
@@ -47,6 +50,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   const [gameTime, setGameTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [loadingSong, setLoadingSong] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [scoreList, setScoreList] = useState<{ nick: string; score: number; verified: boolean }[]>([]);
   // playOnTV: true in 'computer' mode (host is a singer), false in 'con' mode (host is display only).
   // Stored only in a ref since mode never changes after mount.
@@ -266,8 +270,20 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
             delete remoteAudioElementsRef.current[data.channel];
           }
           break;
+        case 'readyCheckUpdate':
+          setPlayersReadyState(data.readyStates || {});
+          break;
+        case 'loadProgressUpdate':
+          setPlayersLoadProgress(data.progressStates || {});
+          break;
         case 'loadTrack':
+          setPlayersReadyState({});
           handleLoadTrack(data.song, data.part || 0);
+          break;
+        case 'returnedToLobby':
+          setPlayersReadyState({});
+          setPlayersLoadProgress({});
+          setActiveTab('lobby');
           break;
         case 'startGame':
           handleStartGame(data.time);
@@ -356,6 +372,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       audioNodeRef.current = null;
     }
     setIsPlaying(false);
+    setCountdown(null);
   };
 
   const cleanupWebRTC = () => {
@@ -522,13 +539,50 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       const songObj = new Song(`https://music.ponytone.online/${songId}`, notesText);
       setActiveSong(songObj);
 
-      // Fetch audio file
+      // Fetch audio file with progress tracking
       const audioCtx = audioContextRef.current || new (window.AudioContext || (window as any).webkitAudioContext)();
       audioContextRef.current = audioCtx;
 
       const audioUrl = songObj.mp3 || `https://music.ponytone.online/${songId}/music.mp3`;
       const audioResponse = await fetch(audioUrl);
-      const arrayBuffer = await audioResponse.arrayBuffer();
+      if (!audioResponse.ok) throw new Error('Audio file could not be downloaded.');
+
+      const contentLength = audioResponse.headers.get('content-length');
+      const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+
+      let receivedBytes = 0;
+      const chunks = [];
+      const reader = audioResponse.body?.getReader();
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            chunks.push(value);
+            receivedBytes += value.length;
+            if (totalBytes > 0) {
+              const pct = Math.round((receivedBytes / totalBytes) * 100);
+              // Report progress (capped at 99% until decoding is complete)
+              const reportPct = Math.min(99, pct);
+              socketRef.current?.send(JSON.stringify({
+                action: 'loadProgress',
+                progress: reportPct,
+              }));
+            }
+          }
+        }
+      }
+
+      // Combine chunks into a single Uint8Array
+      const allChunks = new Uint8Array(receivedBytes);
+      let position = 0;
+      for (const chunk of chunks) {
+        allChunks.set(chunk, position);
+        position += chunk.length;
+      }
+
+      const arrayBuffer = allChunks.buffer;
       const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
       audioBufferRef.current = decodedBuffer;
 
@@ -632,6 +686,12 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       const elapsedMs = Math.max(0, elapsedSec * 1000);
       setGameTime(elapsedMs);
       gameTimeRef.current = elapsedMs;
+
+      if (elapsedSec < 0) {
+        setCountdown(Math.ceil(-elapsedSec));
+      } else {
+        setCountdown(null);
+      }
 
       if (elapsedMs >= audioBufferRef.current!.duration * 1000) {
         handleSongFinish();
@@ -812,36 +872,6 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   };
 
   // Initiate gameplay triggers
-  const triggerLoadTrack = (songId: number) => {
-    socketRef.current?.send(JSON.stringify({
-      action: 'loadTrack',
-      song: songId,
-      part: selectedPartIndex,
-    }));
-  };
-
-  const triggerStartGame = () => {
-    // Starts the game in 3 seconds to allow clock buffers
-    const futureTime = fixedTimestamp() + 3000;
-
-    // Build per-channel assignments so phones know their part name
-    const assignments: { [channel: string]: { partIndex: number; partName: string } } = {};
-    playersStateRef.current.forEach((p) => {
-      if (p.channel) {
-        const partName = activeSongRef.current && activeSongRef.current.parts.length > 1
-          ? (activeSongRef.current.partNames?.[p.part] || activeSongItemRef.current?.duet?.[p.part] || `Part ${p.part + 1}`)
-          : 'Solo';
-        assignments[p.channel] = { partIndex: p.part, partName };
-      }
-    });
-
-    socketRef.current?.send(JSON.stringify({
-      action: 'startGame',
-      time: futureTime,
-      assignments,
-    }));
-  };
-
   /** Called from the TV UI to change a player's assigned duet part. */
   const handlePartChange = (playerChannel: string, newPartIndex: number) => {
     setPlayersState((prev) =>
@@ -858,14 +888,19 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   const handleStartTournamentMatch = (_p1: string, _p2: string, callback: (s1: number, s2: number) => void) => {
     setTournamentMatchCallback(() => callback);
     setShowTournament(false);
-    // Find a random song or first song in playlist
+    
+    let songId = 0;
     if (playlist.length > 0) {
-      triggerLoadTrack(playlist[0]);
+      songId = playlist[0];
     } else if (songs.length > 0) {
-      triggerLoadTrack(songs[0].id);
+      songId = songs[0].id;
     } else {
       alert('Add songs to the playlist queue first!');
+      return;
     }
+
+    socketRef.current?.send(JSON.stringify({ action: 'clearQueue' }));
+    socketRef.current?.send(JSON.stringify({ action: 'addToQueue', song: songId }));
   };
 
   const filteredSongsList = songs.filter((s) =>
@@ -906,7 +941,8 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
 
       {/* Main interface switcher */}
       {activeTab === 'lobby' && (
-        <div className="lobby-layout-grid">
+        <>
+          <div className="lobby-layout-grid">
           {/* Left panel: Song selection and playlist */}
           <div className="lobby-left-column">
             <section className="glass-panel search-section">
@@ -979,17 +1015,49 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
                   .filter(([ch]) => mode === 'con' ? ch !== myChannelRef.current : true)
                   .map(([ch, m]) => {
                     const isMe = ch === myChannelRef.current;
+                    const isReady = playersReadyState[ch] || false;
                     return (
-                      <div key={m.id} className="member-row">
-                        <div className="member-color-indicator" style={{ backgroundColor: m.colour }} />
-                        <span className="member-nick">{m.nick}</span>
-                        {isMe && mode === 'computer' && (
-                          <span className="member-you-badge">You</span>
-                        )}
+                      <div key={m.id} className="member-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div className="member-color-indicator" style={{ backgroundColor: m.colour, margin: 0 }} />
+                          <span className="member-nick">{m.nick}</span>
+                          {isMe && mode === 'computer' && (
+                            <span className="member-you-badge">You</span>
+                          )}
+                        </div>
+                        <span className={`ready-status-badge ${isReady ? 'ready' : 'not-ready'}`} style={{
+                          fontSize: '11px',
+                          padding: '3px 8px',
+                          borderRadius: '8px',
+                          fontWeight: 'bold',
+                          color: isReady ? '#4ade80' : '#f87171',
+                          background: isReady ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)',
+                          border: isReady ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(248,113,113,0.2)',
+                        }}>
+                          {isReady ? 'Ready ✓' : 'Not Ready •'}
+                        </span>
                       </div>
                     );
                   })}
               </div>
+
+              {mode === 'computer' && (
+                <div style={{ marginTop: '16px' }}>
+                  <button
+                    onClick={() => {
+                      const currentReady = playersReadyState[myChannelRef.current] || false;
+                      socketRef.current?.send(JSON.stringify({
+                        action: 'readyToGo',
+                        ready: !currentReady,
+                      }));
+                    }}
+                    className={`btn ${playersReadyState[myChannelRef.current] ? 'btn-secondary' : 'btn-primary'}`}
+                    style={{ width: '100%', padding: '12px', borderRadius: '12px', fontWeight: 'bold' }}
+                  >
+                    {playersReadyState[myChannelRef.current] ? "I'm Not Ready" : 'Ready to Sing!'}
+                  </button>
+                </div>
+              )}
 
               {/* QR pairing panel (only visible in Con Mode) */}
               {mode === 'con' && (
@@ -1043,11 +1111,6 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
                           <span className="artist">{song.artist}</span>
                         </div>
                         <div className="actions">
-                          {index === 0 && (
-                            <button onClick={() => triggerLoadTrack(songId)} className="btn btn-primary compact">
-                              Play Now
-                            </button>
-                          )}
                           <button onClick={() => removeFromQueue(songId)} className="btn-remove">
                             <Trash2 size={14} />
                           </button>
@@ -1060,6 +1123,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
             </section>
           </div>
         </div>
+        </>
       )}      {activeTab === 'game' && (
         <div className="gameplay-arena">
           {/* Main Karaoke Screen rendering Canvas */}
@@ -1079,16 +1143,9 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
             )}
 
             {/* Waiting/Loading details */}
-            {loadingSong && (
-              <div className="glass-panel screen-loading-overlay">
-                <div className="spinner" />
-                <h3>Preparing song, download tracks...</h3>
-              </div>
-            )}
-
-            {/* Gameplay overlay controls */}
-            {!isPlaying && !loadingSong && (
-              <div className="screen-waiting-overlay">
+            {/* Unified Loading and Syncing Overlay */}
+            {!isPlaying && (
+              <div className="screen-waiting-overlay" style={{ zIndex: 20 }}>
                 {/* Centered Glass Card */}
                 <div className="glass-panel" style={{
                   padding: '32px',
@@ -1105,8 +1162,45 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
                   textAlign: 'center',
                   boxSizing: 'border-box'
                 }}>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>Song Ready to Start</h3>
-                  <p style={{ margin: '0 0 20px 0', color: '#a1a1aa', fontSize: '15px' }}>{activeSongItem?.title} - {activeSongItem?.artist}</p>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                    {loadingSong ? 'Loading Song Assets...' : 'Waiting for Players...'}
+                  </h3>
+                  <p style={{ margin: '0 0 20px 0', color: '#a1a1aa', fontSize: '15px' }}>
+                    {activeSongItem?.title} - {activeSongItem?.artist}
+                  </p>
+
+                  {/* Render per-computer loading progress bars */}
+                  <div style={{ width: '100%', margin: '0 0 24px 0', padding: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', boxSizing: 'border-box' }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#c084fc', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px', textAlign: 'left' }}>
+                      Computer Nodes Progress
+                    </h4>
+                    {Object.keys(playersLoadProgress).length === 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a1a1aa', fontSize: '14px' }}>
+                        <div className="spinner" style={{ width: '16px', height: '16px', margin: 0 }} />
+                        Initializing connection...
+                      </div>
+                    ) : (
+                      Object.entries(playersLoadProgress).map(([ch, progress]) => {
+                        let displayName = 'Display Screen';
+                        if (ch === myChannelRef.current) {
+                          displayName = mode === 'computer' ? `${nick} (You)` : 'TV Display (You)';
+                        } else if (members[ch]) {
+                          displayName = members[ch].nick;
+                        }
+                        return (
+                          <div key={ch} style={{ width: '100%', marginBottom: '14px', textAlign: 'left' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px', fontWeight: 500 }}>
+                              <span>{displayName}</span>
+                              <span style={{ fontFamily: 'monospace', color: 'var(--accent-purple)' }}>{progress}%</span>
+                            </div>
+                            <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                              <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(to right, var(--accent-purple), var(--accent-indigo))', borderRadius: '4px', transition: 'width 0.2s ease-out' }} />
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                   
                   {/* Per-player duet part assignment (only shown for duet songs with multiple parts) */}
                   {activeSong && activeSong.parts.length > 1 && (
@@ -1145,10 +1239,44 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
 
-                  <button onClick={triggerStartGame} className="btn btn-primary animate-hover" style={{ width: '100%', padding: '14px 28px', fontSize: '16px', fontWeight: 'bold' }}>
-                    <Play size={18} /> Start Sync Playback
-                  </button>
+            {/* Countdown Overlay */}
+            {countdown !== null && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 50,
+                background: 'rgba(0, 0, 0, 0.4)',
+                backdropFilter: 'blur(4px)',
+                flexDirection: 'column',
+              }}>
+                <div style={{
+                  fontSize: '120px',
+                  fontWeight: 900,
+                  color: '#fff',
+                  textShadow: '0 0 40px var(--accent-purple), 0 0 80px var(--accent-indigo)',
+                  animation: 'pulse 1s infinite',
+                }}>
+                  {countdown}
+                </div>
+                <div style={{
+                  fontSize: '24px',
+                  fontWeight: 'bold',
+                  letterSpacing: '2px',
+                  color: 'var(--accent-purple)',
+                  textTransform: 'uppercase',
+                  marginTop: '20px',
+                }}>
+                  Get Ready!
                 </div>
               </div>
             )}

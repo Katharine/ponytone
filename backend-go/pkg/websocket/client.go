@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/big"
 	"sync/atomic"
+	"time"
 
 	"ponytone/pkg/db"
 	"ponytone/pkg/models"
@@ -108,6 +109,9 @@ func HandleWebSocket(c *websocket.Conn) {
 				Channel: channelName,
 				Nick:    client.Nick,
 			})
+
+			broadcastReadyStates(room)
+			checkAndTriggerGameStart(room, partyID)
 		}
 
 		if client.TargetChannel != "" {
@@ -153,6 +157,7 @@ func HandleWebSocket(c *websocket.Conn) {
 				client.Nick = wsMsg.Nick
 				client.Colour = room.GetUnusedColour()
 				client.IsPlayer = true
+				client.IsReady = false
 
 				// Update database
 				db.DB.Model(&models.PartyMember{}).Where("channel = ?", channelName).Updates(map[string]interface{}{
@@ -189,11 +194,14 @@ func HandleWebSocket(c *websocket.Conn) {
 					Playlist: GetPlaylist(partyID),
 				})
 			}
+			broadcastReadyStates(room)
+			checkAndTriggerGameStart(room, partyID)
 
 		case "registerPlayer":
 			client.Nick = wsMsg.Nick
 			client.Colour = room.GetUnusedColour()
 			client.IsPlayer = true
+			client.IsReady = false
 
 			// Create connection record in PartyMember DB
 			member := models.PartyMember{
@@ -228,6 +236,9 @@ func HandleWebSocket(c *websocket.Conn) {
 				Colour:  client.Colour,
 				ID:      client.MemberID,
 			})
+
+			broadcastReadyStates(room)
+			checkAndTriggerGameStart(room, partyID)
 
 		case "pairMic":
 			client.TargetChannel = wsMsg.Target
@@ -286,6 +297,8 @@ func HandleWebSocket(c *websocket.Conn) {
 				Playlist: GetPlaylist(partyID),
 			})
 
+			checkAndTriggerGameStart(room, partyID)
+
 		case "removeFromQueue":
 			db.DB.Where("party_id = ? AND song_id = ?", partyID, wsMsg.Song).Delete(&models.Playlist{})
 
@@ -293,6 +306,13 @@ func HandleWebSocket(c *websocket.Conn) {
 			room.BroadcastAll(WSMessage{
 				Action:   "playlist",
 				Playlist: GetPlaylist(partyID),
+			})
+
+		case "clearQueue":
+			db.DB.Where("party_id = ?", partyID).Delete(&models.Playlist{})
+			room.BroadcastAll(WSMessage{
+				Action:   "playlist",
+				Playlist: []uint{},
 			})
 
 		case "loadTrack":
@@ -304,6 +324,10 @@ func HandleWebSocket(c *websocket.Conn) {
 				Action:   "playlist",
 				Playlist: GetPlaylist(partyID),
 			})
+
+			room.Mu.Lock()
+			room.GameStarted = false
+			room.Mu.Unlock()
 
 			// Relay the loadTrack command to all clients
 			room.BroadcastAll(wsMsg)
@@ -317,7 +341,101 @@ func HandleWebSocket(c *websocket.Conn) {
 				Action: "pong",
 			})
 
-		case "readyToGo", "trackLoaded", "sangNotes", "micPitch", "selectPart":
+		case "startReadyCheck":
+			// No-op in persistent lobby ready check system
+
+		case "readyToGo":
+			room.Mu.Lock()
+			targetClient := client
+			if client.IsMic && client.TargetChannel != "" {
+				if tc, ok := room.Clients[client.TargetChannel]; ok {
+					targetClient = tc
+				}
+			}
+			targetClient.IsReady = wsMsg.Ready
+			room.Mu.Unlock()
+
+			broadcastReadyStates(room)
+			checkAndTriggerGameStart(room, partyID)
+
+		case "cancelReadyCheck":
+			// No-op in persistent lobby ready check system
+
+		case "songFinished":
+			room.BroadcastAll(wsMsg)
+
+		case "returnedToLobby":
+			room.Mu.Lock()
+			room.GameStarted = false
+			for _, cl := range room.Clients {
+				cl.IsReady = false
+				cl.LoadProgress = 0
+			}
+			room.Mu.Unlock()
+			broadcastReadyStates(room)
+			room.BroadcastAll(wsMsg)
+
+		case "loadProgress":
+			room.Mu.Lock()
+			client.LoadProgress = wsMsg.Progress
+			room.Mu.Unlock()
+
+			checkAndStartGame(room)
+
+		case "trackLoaded":
+			room.Mu.Lock()
+			room.Assignments = wsMsg.Assignments
+			room.PartNames = wsMsg.PartNames
+			client.LoadProgress = 100
+			room.Mu.Unlock()
+
+			// Relay trackLoaded message to all other participants so phones can configure duet choices
+			wsMsg.Origin = channelName
+			wsMsg.Target = client.TargetChannel
+			if isMic && client.TargetChannel != "" {
+				room.Mu.RLock()
+				primaryClient, ok := room.Clients[client.TargetChannel]
+				room.Mu.RUnlock()
+				if ok {
+					primaryClient.Send(wsMsg)
+				}
+			} else {
+				room.BroadcastOthers(channelName, wsMsg)
+			}
+
+			checkAndStartGame(room)
+
+		case "selectPart":
+			room.Mu.Lock()
+			if room.Assignments == nil {
+				room.Assignments = make(map[string]interface{})
+			}
+			targetChan := wsMsg.Channel
+			if targetChan == "" {
+				if client.IsMic && client.TargetChannel != "" {
+					targetChan = client.TargetChannel
+				} else {
+					targetChan = channelName
+				}
+			}
+			room.Assignments[targetChan] = wsMsg.Part
+			room.Mu.Unlock()
+
+			// Broadcast/relay selectPart to other room participants
+			wsMsg.Origin = channelName
+			wsMsg.Target = client.TargetChannel
+			if isMic && client.TargetChannel != "" {
+				room.Mu.RLock()
+				primaryClient, ok := room.Clients[client.TargetChannel]
+				room.Mu.RUnlock()
+				if ok {
+					primaryClient.Send(wsMsg)
+				}
+			} else {
+				room.BroadcastOthers(channelName, wsMsg)
+			}
+
+		case "sangNotes", "micPitch":
 			// Broadcast gameplay and pitch data to other room participants
 			// If companion mic, it might target the primary browser screen instead
 			wsMsg.Origin = channelName
@@ -336,6 +454,73 @@ func HandleWebSocket(c *websocket.Conn) {
 	}
 }
 
+// checkAndStartGame evaluates progress across all computer clients in the room,
+// and starts the game automatically if all have hit 100%.
+func checkAndStartGame(room *Room) {
+	room.Mu.Lock()
+	progressStates := make(map[string]int)
+	allComplete := true
+	hasComputers := false
+	for ch, cl := range room.Clients {
+		if !cl.IsMic {
+			hasComputers = true
+			progressStates[ch] = cl.LoadProgress
+			if cl.LoadProgress < 100 {
+				allComplete = false
+			}
+		}
+	}
+
+	shouldStart := hasComputers && allComplete && !room.GameStarted
+	if shouldStart {
+		room.GameStarted = true
+	}
+	room.Mu.Unlock()
+
+	// Broadcast the progress states update
+	room.BroadcastAll(WSMessage{
+		Action:         "loadProgressUpdate",
+		ProgressStates: progressStates,
+	})
+
+	if shouldStart {
+		room.Mu.Lock()
+		assignments := make(map[string]interface{})
+		for ch, pIdxVal := range room.Assignments {
+			pIdx := 0
+			switch v := pIdxVal.(type) {
+			case float64:
+				pIdx = int(v)
+			case int:
+				pIdx = v
+			}
+
+			partName := "Solo"
+			if len(room.PartNames) > 1 {
+				if pIdx >= 0 && pIdx < len(room.PartNames) {
+					partName = room.PartNames[pIdx]
+				} else {
+					partName = fmt.Sprintf("Part %d", pIdx+1)
+				}
+			}
+			assignments[ch] = map[string]interface{}{
+				"partIndex": pIdx,
+				"partName":  partName,
+			}
+		}
+		room.Mu.Unlock()
+
+		// Get synchronized absolute time: now + 3000ms
+		serverStartTimestamp := time.Now().UnixNano()/int64(time.Millisecond) + 3000
+
+		room.BroadcastAll(WSMessage{
+			Action:      "startGame",
+			Time:        serverStartTimestamp,
+			Assignments: assignments,
+		})
+	}
+}
+
 // Generate secure random string helper
 func generateSecureRandomString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -346,3 +531,68 @@ func generateSecureRandomString(n int) string {
 	}
 	return string(b)
 }
+
+// broadcastReadyStates gathers all players' ready states and broadcasts them to everyone in the room.
+func broadcastReadyStates(room *Room) {
+	room.Mu.Lock()
+	readyStates := make(map[string]bool)
+	for ch, cl := range room.Clients {
+		if cl.IsPlayer {
+			readyStates[ch] = cl.IsReady
+		}
+	}
+	room.Mu.Unlock()
+
+	room.BroadcastAll(WSMessage{
+		Action:      "readyCheckUpdate",
+		ReadyStates: readyStates,
+	})
+}
+
+// checkAndTriggerGameStart evaluates if there are active players, if they are all ready,
+// and if there's a song in the playlist queue. If so, it starts the song loading phase automatically.
+func checkAndTriggerGameStart(room *Room, partyID string) {
+	room.Mu.Lock()
+	allReady := true
+	hasPlayers := false
+	for _, cl := range room.Clients {
+		if cl.IsPlayer {
+			hasPlayers = true
+			if !cl.IsReady {
+				allReady = false
+			}
+		}
+	}
+	room.Mu.Unlock()
+
+	if hasPlayers && allReady {
+		playlist := GetPlaylist(partyID)
+		if len(playlist) > 0 {
+			songID := playlist[0]
+
+			room.Mu.Lock()
+			room.GameStarted = false
+			// Reset progress states for the loading screen
+			for _, cl := range room.Clients {
+				cl.LoadProgress = 0
+			}
+			room.Mu.Unlock()
+
+			// Remove from queue
+			db.DB.Where("party_id = ? AND song_id = ?", partyID, songID).Delete(&models.Playlist{})
+
+			// Broadcast updated playlist
+			room.BroadcastAll(WSMessage{
+				Action:   "playlist",
+				Playlist: GetPlaylist(partyID),
+			})
+
+			// Broadcast loadTrack
+			room.BroadcastAll(WSMessage{
+				Action: "loadTrack",
+				Song:   songID,
+			})
+		}
+	}
+}
+

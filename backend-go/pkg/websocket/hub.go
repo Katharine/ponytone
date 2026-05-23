@@ -24,6 +24,8 @@ type Client struct {
 	IsPlayer      bool   // True if this client represents an active player/singer
 	IsDisplay     bool   // True if this client is a display (Con Mode host)
 	TargetChannel string // For phone companion mics
+	IsReady       bool   // True if the player is ready to sing
+	LoadProgress  int    // Song loading progress percentage (0-100)
 	Mu            sync.Mutex
 }
 
@@ -38,9 +40,13 @@ func (c *Client) Send(msg interface{}) {
 }
 
 type Room struct {
-	PartyID string
-	Clients map[string]*Client // Map of ChannelName -> Client
-	Mu      sync.RWMutex
+	PartyID              string
+	Clients              map[string]*Client // Map of ChannelName -> Client
+	ActiveReadyCheckSong uint               // Song currently undergoing ready check
+	Assignments          map[string]interface{}
+	PartNames            []string
+	GameStarted          bool // Guard to prevent duplicate startGame triggers
+	Mu                   sync.RWMutex
 }
 
 type Hub struct {
@@ -94,9 +100,13 @@ type WSMessage struct {
 	Notes    interface{} `json:"notes,omitempty"`
 	Note     int         `json:"note"`
 	// Extra relay fields passed through verbatim (assignments, partNames, numParts, etc.)
-	NumParts    int                      `json:"numParts,omitempty"`
-	PartNames   []string                 `json:"partNames,omitempty"`
-	Assignments map[string]interface{}   `json:"assignments,omitempty"`
+	NumParts       int                      `json:"numParts,omitempty"`
+	PartNames      []string                 `json:"partNames,omitempty"`
+	Assignments    map[string]interface{}   `json:"assignments,omitempty"`
+	Ready          bool                     `json:"ready,omitempty"`
+	Progress       int                      `json:"progress,omitempty"`
+	ReadyStates    map[string]bool          `json:"readyStates,omitempty"`
+	ProgressStates map[string]int           `json:"progressStates,omitempty"`
 }
 
 func (r *Room) BroadcastOthers(senderChannel string, msg interface{}) {

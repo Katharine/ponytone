@@ -27,6 +27,13 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
   const [registeredNick, setRegisteredNick] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
 
+  // Ready Check & Sync Load States
+  const [songs, setSongs] = useState<any[]>([]);
+  const [playersReadyState, setPlayersReadyState] = useState<{ [channel: string]: boolean }>({});
+  const [playersLoadProgress, setPlayersLoadProgress] = useState<{ [channel: string]: number }>({});
+  const [isSongLoading, setIsSongLoading] = useState(false);
+  const [loadingSongId, setLoadingSongId] = useState<number | null>(null);
+
   // Duet part states
   const [assignedPartName, setAssignedPartName] = useState<string>('');
   const [duetPartsCount, setDuetPartsCount] = useState<number>(0);
@@ -79,6 +86,13 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
   useEffect(() => {
     pairedTargetChannelRef.current = pairedTargetChannel;
   }, [pairedTargetChannel]);
+
+  useEffect(() => {
+    fetch('/api/tracklist')
+      .then((r) => r.json())
+      .then((data) => setSongs(data))
+      .catch((err) => console.error('Error fetching tracklist:', err));
+  }, []);
 
   useEffect(() => {
     // Apply layout resets to document and body for the companion mic page
@@ -161,6 +175,16 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
               setPairedTargetChannel(data.target);
             }
             break;
+          case 'readyCheckUpdate':
+            setPlayersReadyState(data.readyStates || {});
+            break;
+          case 'loadProgressUpdate':
+            setPlayersLoadProgress(data.progressStates || {});
+            break;
+          case 'loadTrack':
+            setIsSongLoading(true);
+            setLoadingSongId(data.song);
+            break;
           case 'trackLoaded': {
             const numParts = data.numParts || 1;
             const partNames = data.partNames || [];
@@ -187,6 +211,8 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
           case 'startGame':
             serverStartTimestampRef.current = data.time;
             setIsPlaying(true);
+            setIsSongLoading(false);
+            setLoadingSongId(null);
             
             // Determine our assigned part name
             const myCh = myChannelRef.current;
@@ -204,6 +230,8 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
           case 'songFinished':
           case 'returnedToLobby':
             setIsPlaying(false);
+            setIsSongLoading(false);
+            setLoadingSongId(null);
             setAssignedPartName('');
             setDuetPartsCount(0);
             setDuetPartNames([]);
@@ -482,7 +510,7 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
         </div>
       ) : (
         /* Active Microphone Screen */
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
           {/* Target details */}
           <div style={{
             padding: '8px 16px',
@@ -501,113 +529,267 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
               <span>Paired mic for: <span style={{ color: '#fff' }}>{getPairedPlayerName()}</span></span>
             )}
           </div>
-          {duetPartsCount > 1 && !isPlaying && (
-            <div style={{
-              width: '100%',
-              maxWidth: '320px',
-              borderRadius: '16px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              padding: '16px',
-              marginBottom: '20px',
-              textAlign: 'center',
-              backdropFilter: 'blur(10px)',
-              boxSizing: 'border-box'
-            }}>
-              <h4 style={{ margin: '0 0 12px 0', fontSize: '15px', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Select Duet Part
-              </h4>
-              <div className="duet-part-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto', paddingRight: '4px' }}>
-                {Array.from({ length: duetPartsCount }).map((_, idx) => {
-                  const partName = duetPartNames[idx] || `Part ${idx + 1}`;
-                  const isSelected = selectedPartIndex === idx;
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        setSelectedPartIndex(idx);
-                        socketRef.current?.send(JSON.stringify({
-                          action: 'selectPart',
-                          part: idx,
-                          channel: myChannelRef.current,
-                        }));
-                      }}
-                      style={{
-                        padding: '12px',
-                        borderRadius: '10px',
-                        border: isSelected ? '1px solid #c084fc' : '1px solid rgba(255, 255, 255, 0.1)',
-                        background: isSelected ? 'rgba(192, 132, 252, 0.2)' : 'rgba(255, 255, 255, 0.02)',
-                        color: '#fff',
-                        fontWeight: isSelected ? 'bold' : 'normal',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        fontFamily: FONT,
-                        fontSize: '14px',
-                      }}
-                    >
-                      {partName} {isSelected && '✓'}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+
+          {isSongLoading ? (
+            /* Song Loading Progress Screen */
+            (() => {
+              const loadingSong = songs.find(s => s.id === loadingSongId);
+              return (
+                <div style={{
+                  width: '100%',
+                  maxWidth: '320px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '20px',
+                  alignItems: 'center',
+                }}>
+                  <div style={{
+                    width: '100%',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '24px',
+                    padding: '24px',
+                    backdropFilter: 'blur(10px)',
+                    boxSizing: 'border-box',
+                    textAlign: 'center',
+                  }}>
+                    <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', color: '#c084fc', fontWeight: 'bold' }}>Loading Song...</h3>
+                    {loadingSong ? (
+                      <p style={{ margin: '0 0 20px 0', color: '#a1a1aa', fontSize: '14px' }}>
+                        <strong>{loadingSong.title}</strong><br />{loadingSong.artist}
+                      </p>
+                    ) : (
+                      <p style={{ margin: '0 0 20px 0', color: '#a1a1aa', fontSize: '14px' }}>Downloading notes & audio...</p>
+                    )}
+
+                    <div style={{ width: '100%', padding: '12px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '14px', boxSizing: 'border-box', marginBottom: '16px' }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#c084fc', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '6px', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        TV / Computer Progress
+                      </h4>
+                      {Object.keys(playersLoadProgress).length === 0 ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a1a1aa', fontSize: '13px', textAlign: 'left' }}>
+                          <div style={{ width: '12px', height: '12px', borderRadius: '50%', border: '2px solid rgba(255, 255, 255, 0.2)', borderTopColor: '#c084fc', animation: 'spin 1s linear infinite' }} />
+                          Waiting for TV to start download...
+                        </div>
+                      ) : (
+                        Object.entries(playersLoadProgress).map(([ch, progress]) => {
+                          let displayName = 'Display Screen';
+                          if (ch === pairedTargetChannel) {
+                            displayName = 'Host TV (Paired)';
+                          } else if (members[ch]) {
+                            displayName = members[ch].nick;
+                          }
+                          return (
+                            <div key={ch} style={{ width: '100%', marginBottom: '12px', textAlign: 'left' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px', fontWeight: 500 }}>
+                                <span>{displayName}</span>
+                                <span style={{ fontFamily: 'monospace', color: '#c084fc' }}>{progress}%</span>
+                              </div>
+                              <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(to right, #c084fc, #6366f1)', borderRadius: '3px', transition: 'width 0.2s ease-out' }} />
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                    
+                    <p style={{ fontSize: '12px', color: '#a1a1aa', margin: 0 }}>
+                      Syncing audio playback. Game will start automatically when loading finishes.
+                    </p>
+                  </div>
+
+                  {duetPartsCount > 1 && (
+                    <div style={{
+                      width: '100%',
+                      borderRadius: '16px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      padding: '16px',
+                      textAlign: 'center',
+                      backdropFilter: 'blur(10px)',
+                      boxSizing: 'border-box'
+                    }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '15px', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Select Duet Part
+                      </h4>
+                      <div className="duet-part-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto', paddingRight: '4px' }}>
+                        {Array.from({ length: duetPartsCount }).map((_, idx) => {
+                          const partName = duetPartNames[idx] || `Part ${idx + 1}`;
+                          const isSelected = selectedPartIndex === idx;
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                setSelectedPartIndex(idx);
+                                socketRef.current?.send(JSON.stringify({
+                                  action: 'selectPart',
+                                  part: idx,
+                                  channel: myChannelRef.current,
+                                }));
+                              }}
+                              style={{
+                                padding: '12px',
+                                borderRadius: '10px',
+                                border: isSelected ? '1px solid #c084fc' : '1px solid rgba(255, 255, 255, 0.1)',
+                                background: isSelected ? 'rgba(192, 132, 252, 0.2)' : 'rgba(255, 255, 255, 0.02)',
+                                color: '#fff',
+                                fontWeight: isSelected ? 'bold' : 'normal',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                fontFamily: FONT,
+                                fontSize: '14px',
+                              }}
+                            >
+                              {partName} {isSelected && '✓'}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()
+          ) : isPlaying ? (
+            /* Microphone Screen (Active Capture) */
+            <>
+              {assignedPartName && assignedPartName !== 'Solo' && (
+                <div style={{
+                  fontSize: '15px',
+                  color: '#c084fc',
+                  fontWeight: 'bold',
+                  background: 'rgba(192, 132, 252, 0.1)',
+                  border: '1px solid rgba(192, 132, 252, 0.2)',
+                  padding: '8px 16px',
+                  borderRadius: '12px',
+                  marginBottom: '20px',
+                  textAlign: 'center'
+                }}>
+                  🎤 Singing: {assignedPartName}
+                </div>
+              )}
+
+              {/* Interactive Mic Button */}
+              <button
+                onClick={toggleMic}
+                disabled={status !== 'connected'}
+                style={{
+                  width: '160px',
+                  height: '160px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: isActive
+                    ? 'linear-gradient(135deg, #ef4444, #b91c1c)'
+                    : 'linear-gradient(135deg, #c084fc, #6366f1)',
+                  color: '#fff',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: status === 'connected' ? 'pointer' : 'not-allowed',
+                  boxShadow: isActive
+                    ? '0 0 40px rgba(239, 68, 68, 0.4)'
+                    : '0 0 40px rgba(192, 132, 252, 0.3)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transform: isActive ? 'scale(1.05)' : 'scale(1)',
+                  opacity: status === 'connected' ? 1 : 0.5,
+                  marginBottom: '30px',
+                }}
+              >
+                {isActive ? <Mic size={48} /> : <MicOff size={48} />}
+                <span style={{ marginTop: '12px', fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  {isActive ? 'Mute Mic' : 'Tap to Sing'}
+                </span>
+              </button>
+            </>
+          ) : (
+            /* Lobby Ready Check Screen */
+            (() => {
+              const effectiveChannel = isRegistered ? myChannelRef.current : (isPaired ? pairedTargetChannel : '');
+              return (
+                <div style={{
+                  width: '100%',
+                  maxWidth: '320px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '24px',
+                  padding: '24px',
+                  backdropFilter: 'blur(10px)',
+                  boxSizing: 'border-box',
+                  textAlign: 'center',
+                }}>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '20px', color: '#c084fc', fontWeight: 'bold' }}>Lobby Ready Check</h3>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px', textAlign: 'left' }}>
+                    {Object.entries(members).map(([ch, member]) => {
+                      const isMe = ch === effectiveChannel;
+                      const isReady = playersReadyState[ch] || false;
+                      return (
+                        <div key={ch} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: member.colour }} />
+                            <span style={{ fontSize: '14px', fontWeight: 500 }}>
+                              {member.nick} {isMe && ' (You)'}
+                            </span>
+                          </div>
+                          <span style={{
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            color: isReady ? '#4ade80' : '#fbbf24',
+                          }}>
+                            {isReady ? 'Ready ✓' : 'Not Ready •'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      const isReady = playersReadyState[effectiveChannel] || false;
+                      socketRef.current?.send(JSON.stringify({
+                        action: 'readyToGo',
+                        ready: !isReady,
+                      }));
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      borderRadius: '12px',
+                      border: 'none',
+                      background: (playersReadyState[effectiveChannel] || false)
+                        ? 'rgba(255, 255, 255, 0.1)'
+                        : 'linear-gradient(135deg, #c084fc, #6366f1)',
+                      color: '#fff',
+                      fontSize: '15px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      boxShadow: (playersReadyState[effectiveChannel] || false)
+                        ? 'none'
+                        : '0 0 20px rgba(192, 132, 252, 0.3)',
+                      fontFamily: FONT,
+                    }}
+                  >
+                    {(playersReadyState[effectiveChannel] || false) ? "I'm Not Ready" : 'Ready to Sing!'}
+                  </button>
+                </div>
+              );
+            })()
           )}
 
-          {/* Active Assigned Duet Part (only shown if there's actually a duet, i.e., not Solo) */}
-          {isPlaying && assignedPartName && assignedPartName !== 'Solo' && (
-            <div style={{
-              fontSize: '15px',
-              color: '#c084fc',
-              fontWeight: 'bold',
-              background: 'rgba(192, 132, 252, 0.1)',
-              border: '1px solid rgba(192, 132, 252, 0.2)',
-              padding: '8px 16px',
-              borderRadius: '12px',
-              marginBottom: '20px',
-              textAlign: 'center'
-            }}>
-              🎤 Singing: {assignedPartName}
-            </div>
-          )}
-
-          {/* Interactive Mic Button */}
-          <button
-            onClick={toggleMic}
-            disabled={status !== 'connected'}
-            style={{
-              width: '160px',
-              height: '160px',
-              borderRadius: '50%',
-              border: 'none',
-              background: isActive
-                ? 'linear-gradient(135deg, #ef4444, #b91c1c)'
-                : 'linear-gradient(135deg, #c084fc, #6366f1)',
-              color: '#fff',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: status === 'connected' ? 'pointer' : 'not-allowed',
-              boxShadow: isActive
-                ? '0 0 40px rgba(239, 68, 68, 0.4)'
-                : '0 0 40px rgba(192, 132, 252, 0.3)',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              transform: isActive ? 'scale(1.05)' : 'scale(1)',
-              opacity: status === 'connected' ? 1 : 0.5,
-              marginBottom: '30px',
-            }}
-          >
-            {isActive ? <Mic size={48} /> : <MicOff size={48} />}
-            <span style={{ marginTop: '12px', fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
-              {isActive ? 'Mute Mic' : 'Tap to Sing'}
-            </span>
-          </button>
-          
           <button
             onClick={() => {
               // Unpair/unregister and return to setup screen
               if (socketRef.current) {
-                // To unpair or unregister, simply reconnect the WebSocket cleanly
                 window.location.reload();
               }
             }}
