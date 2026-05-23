@@ -365,7 +365,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
           break;
         case 'sangNotes':
           // Another room participant shares their real-time note matches
-          updatePlayerPitches(data.channel, data.notes);
+          updatePlayerPitches(data.channel || data.origin, data.notes);
           break;
         case 'micPitch':
           // Paired companion phone mic sends a MIDI pitch value
@@ -918,6 +918,14 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
           if (exists) return player;
           const updatedNotes = [...player.notes, { time: currentBeat, note: noteNumber }];
           const score = calculateIncrementalScore(activeSongRef.current!, player.part, updatedNotes);
+
+          // Broadcast this matched note to other screens in the room
+          socketRef.current?.send(JSON.stringify({
+            action: 'sangNotes',
+            channel: targetChannel,
+            notes: [{ time: currentBeat, note: noteNumber }]
+          }));
+
           return {
             ...player,
             notes: updatedNotes,
