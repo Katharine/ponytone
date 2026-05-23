@@ -17,8 +17,6 @@ interface Member {
 
 export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
-  const [currentNote, setCurrentNote] = useState<string | null>(null);
-  const [currentFreq, setCurrentFreq] = useState<number | null>(null);
   
   // Registration and pairing states
   const [members, setMembers] = useState<{ [channelName: string]: Member }>({});
@@ -45,9 +43,6 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
 
   const handlePitch = (note: DetectedNote) => {
     if (note.number !== null && socketRef.current?.readyState === WebSocket.OPEN) {
-      setCurrentNote(note.name);
-      setCurrentFreq(note.freq ? Math.round(note.freq) : null);
-      
       const now = fixedTimestamp();
       const serverStart = serverStartTimestampRef.current;
       
@@ -59,9 +54,6 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
         note: note.number,
         time: playbackMs,
       }));
-    } else {
-      setCurrentNote(null);
-      setCurrentFreq(null);
     }
   };
 
@@ -270,8 +262,6 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
   const toggleMic = async () => {
     if (isActive) {
       stopAudioEngine();
-      setCurrentNote(null);
-      setCurrentFreq(null);
     } else {
       await startAudioEngine();
     }
@@ -304,10 +294,9 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
           <Smartphone size={32} style={{ color: '#c084fc' }} />
           <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold', background: 'linear-gradient(to right, #c084fc, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Companion Mic
+            Ponytone
           </h1>
         </div>
-        <p style={{ color: '#a1a1aa', fontSize: '14px', margin: '4px 0 0 0' }}>Party Room: <span style={{ color: '#fff', fontWeight: 'bold' }}>{partyId}</span></p>
       </div>
 
       {/* Connection Status Banner */}
@@ -550,8 +539,8 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
             </div>
           )}
 
-          {/* Active Assigned Part during gameplay */}
-          {isPlaying && assignedPartName && (
+          {/* Active Assigned Duet Part (only shown if there's actually a duet, i.e., not Solo) */}
+          {isPlaying && assignedPartName && assignedPartName !== 'Solo' && (
             <div style={{
               fontSize: '15px',
               color: '#c084fc',
@@ -566,7 +555,6 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
               🎤 Singing: {assignedPartName}
             </div>
           )}
-
 
           {/* Interactive Mic Button */}
           <button
@@ -600,57 +588,6 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
               {isActive ? 'Mute Mic' : 'Tap to Sing'}
             </span>
           </button>
-
-          {/* Song playback sync indicator */}
-          {isPlaying && (
-            <div style={{
-              fontSize: '13px',
-              color: '#4ade80',
-              fontWeight: '500',
-              background: 'rgba(74, 222, 128, 0.1)',
-              border: '1px solid rgba(74, 222, 128, 0.2)',
-              padding: '6px 12px',
-              borderRadius: '12px',
-              marginBottom: '20px',
-              animation: 'pulse 1.5s infinite alternate'
-            }}>
-              Song Playback Synchronized
-            </div>
-          )}
-
-          {/* Real-time Pitch Feedback Panel */}
-          <div style={{
-            width: '100%',
-            maxWidth: '320px',
-            borderRadius: '16px',
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            padding: '24px',
-            textAlign: 'center',
-            backdropFilter: 'blur(10px)',
-          }}>
-            <p style={{ color: '#a1a1aa', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
-              Detected Note
-            </p>
-            <div style={{
-              height: '72px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '48px',
-              fontWeight: 'bold',
-              color: currentNote ? '#c084fc' : '#3f3f46',
-              textShadow: currentNote ? '0 0 20px rgba(192, 132, 252, 0.5)' : 'none',
-              transition: 'all 0.15s ease'
-            }}>
-              {currentNote || '--'}
-            </div>
-            {currentFreq && (
-              <p style={{ color: '#71717a', fontSize: '14px', marginTop: '8px' }}>
-                {currentFreq} Hz
-              </p>
-            )}
-          </div>
           
           <button
             onClick={() => {
