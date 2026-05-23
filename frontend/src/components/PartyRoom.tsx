@@ -152,6 +152,21 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
     tournamentMatchCallbackRef.current = tournamentMatchCallback;
   }, [tournamentMatchCallback]);
 
+  // Early microphone permission request for computer mode
+  useEffect(() => {
+    if (mode === 'computer') {
+      console.log('Requesting early microphone permission for Computer Mode...');
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then((stream) => {
+          stream.getTracks().forEach((track) => track.stop());
+          console.log('Early microphone permission approved.');
+        })
+        .catch((err) => {
+          console.warn('Early microphone permission denied or failed:', err);
+        });
+    }
+  }, [mode]);
+
   // Connect WebSockets
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
