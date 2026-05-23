@@ -37,6 +37,7 @@ export class Song {
   end: number | null;
   videogap: number;
   parts: Part[];
+  partNames: string[];
 
   private _mp3: string | null;
   private _background: string | null;
@@ -46,6 +47,7 @@ export class Song {
     this.baseURL = baseURL;
     this.metadata = {};
     this.parts = [];
+    this.partNames = [];
     this.bpm = 0;
     this.gap = 0;
     this.start = null;
@@ -223,7 +225,19 @@ export class Song {
         this.end = parseInt(value, 10);
         break;
       default:
-        console.warn(`Got unknown command ${command}; ignoring.`);
+        if (command.startsWith("P") && !isNaN(parseInt(command.substring(1), 10))) {
+          const pIdx = parseInt(command.substring(1), 10) - 1;
+          if (pIdx >= 0) {
+            this.partNames[pIdx] = value;
+          }
+        } else if (command.startsWith("DUETSINGERP") && !isNaN(parseInt(command.substring(11), 10))) {
+          const pIdx = parseInt(command.substring(11), 10) - 1;
+          if (pIdx >= 0) {
+            this.partNames[pIdx] = value;
+          }
+        } else {
+          console.warn(`Got unknown command ${command}; ignoring.`);
+        }
     }
   }
 

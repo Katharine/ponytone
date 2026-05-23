@@ -536,7 +536,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
         if (p.channel) initialAssignments[p.channel] = p.part;
       });
 
-      const partNames = songObj.parts.map((_, i) => songItem?.duet?.[i] || `Part ${i + 1}`);
+      const partNames = songObj.parts.map((_, i) => songObj.partNames?.[i] || songItem?.duet?.[i] || `Part ${i + 1}`);
 
       // Broadcast client is ready to start (with part assignment info for phones)
       socketRef.current?.send(JSON.stringify({
@@ -786,8 +786,8 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
     const assignments: { [channel: string]: { partIndex: number; partName: string } } = {};
     playersStateRef.current.forEach((p) => {
       if (p.channel) {
-        const partName = activeSongItemRef.current && (activeSongItemRef.current.duet?.length ?? 0) > 1
-          ? (activeSongItemRef.current.duet?.[p.part] || `Part ${p.part + 1}`)
+        const partName = activeSongRef.current && activeSongRef.current.parts.length > 1
+          ? (activeSongRef.current.partNames?.[p.part] || activeSongItemRef.current?.duet?.[p.part] || `Part ${p.part + 1}`)
           : 'Solo';
         assignments[p.channel] = { partIndex: p.part, partName };
       }
@@ -1073,7 +1073,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
                               style={{ margin: 0, padding: '6px 12px', fontSize: '13px', flexShrink: 0 }}
                             >
                               {activeSong.parts.map((_, pIdx) => {
-                                const partName = activeSongItem?.duet?.[pIdx] || `Part ${pIdx + 1}`;
+                                const partName = activeSong.partNames?.[pIdx] || activeSongItem?.duet?.[pIdx] || `Part ${pIdx + 1}`;
                                 return <option key={pIdx} value={pIdx}>{partName}</option>;
                               })}
                             </select>
