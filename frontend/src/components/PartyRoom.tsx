@@ -282,6 +282,63 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
     }
   }, [playlist]);
 
+  useEffect(() => {
+    if (lobbySongParts.length <= 1) {
+      return;
+    }
+
+    const numParts = lobbySongParts.length;
+    const isLocalActive = playOnTVRef.current || pairedMicsRef.current.length > 0;
+
+    setLobbyAssignments((prev) => {
+      const updated = { ...prev };
+      let changed = false;
+
+      // Clean up players who are no longer connected
+      for (const ch of Object.keys(updated)) {
+        if (ch !== myChannelRef.current && !membersRef.current[ch]) {
+          delete updated[ch];
+          changed = true;
+        }
+      }
+
+      // Handle local host TV player if active
+      if (isLocalActive) {
+        const myCh = myChannelRef.current;
+        if (updated[myCh] === undefined) {
+          updated[myCh] = 0; // Host always gets part 0 by default
+          changed = true;
+          socketRef.current?.send(JSON.stringify({
+            action: 'selectPart',
+            part: 0,
+            channel: myCh,
+          }));
+        }
+      }
+
+      // Handle other members
+      const otherMembers = Object.entries(membersRef.current)
+        .filter(([ch]) => ch !== myChannelRef.current);
+
+      otherMembers.forEach(([ch], idx) => {
+        if (updated[ch] === undefined) {
+          const playerIdx = isLocalActive ? idx + 1 : idx;
+          const defaultPart = playerIdx % numParts;
+          updated[ch] = defaultPart;
+          changed = true;
+          socketRef.current?.send(JSON.stringify({
+            action: 'selectPart',
+            part: defaultPart,
+            channel: ch,
+          }));
+        }
+      });
+
+      return changed ? updated : prev;
+    });
+  }, [members, lobbySongParts]);
+
+
 
   useEffect(() => {
     gameTimeRef.current = gameTime;
@@ -753,8 +810,9 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       audioBufferRef.current = decodedBuffer;
       console.log('Audio decoded successfully. Duration:', decodedBuffer.duration, 'channels:', decodedBuffer.numberOfChannels);
 
-      const hasDuet = !!(songItem && songItem.duet && songItem.duet.length > 0);
-      const numParts = (songItem && songItem.duet) ? songItem.duet.length : 1;
+      const hasDuet = songObj.parts.length > 1;
+      const numParts = songObj.parts.length;
+
 
       // Construct Player states based on connected members
       // Include the TV host if they are playing or have companion mics
