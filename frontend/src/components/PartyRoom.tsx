@@ -92,8 +92,10 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       const audioCtx = new AudioCtxClass();
       audioContextRef.current = audioCtx;
       setAudioContextState(audioCtx.state);
+      console.log('AudioContext initialized early. State:', audioCtx.state);
 
       const handleStateChange = () => {
+        console.log('AudioContext state changed early listener:', audioCtx.state);
         setAudioContextState(audioCtx.state);
       };
       audioCtx.addEventListener('statechange', handleStateChange);
@@ -101,6 +103,8 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       return () => {
         audioCtx.removeEventListener('statechange', handleStateChange);
       };
+    } else {
+      console.error('AudioContext not supported in this browser!');
     }
   }, []);
 
@@ -108,6 +112,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   useEffect(() => {
     const resume = () => {
       const ctx = audioContextRef.current;
+      console.log('Global resume interaction fired. Context:', ctx ? ctx.state : 'null');
       if (ctx) {
         // Unlock browser audio hardware by playing a dummy silent buffer
         try {
@@ -116,18 +121,21 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
           source.buffer = buffer;
           source.connect(ctx.destination);
           source.start(0);
+          console.log('Played dummy silent audio buffer for unlock.');
         } catch (e) {
           console.warn('Failed to play dummy audio for unlock:', e);
         }
 
         if (ctx.state === 'suspended') {
           ctx.resume().then(() => {
+            console.log('AudioContext resumed via interaction. New state:', ctx.state);
             setAudioContextState(ctx.state);
             setAudioInteractive(true);
           }).catch((err) => {
             console.warn('Failed to resume audio context:', err);
           });
         } else {
+          console.log('AudioContext already running. Setting interactive to true.');
           setAudioContextState(ctx.state);
           setAudioInteractive(true);
         }
@@ -600,6 +608,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       // Fetch audio file with progress tracking
       const audioCtx = audioContextRef.current || new (window.AudioContext || (window as any).webkitAudioContext)();
       audioContextRef.current = audioCtx;
+      console.log('AudioContext state during handleLoadTrack:', audioCtx.state);
 
       const audioUrl = songObj.mp3 || `https://music.ponytone.online/${songId}/music.mp3`;
       const audioResponse = await fetch(audioUrl);
@@ -641,8 +650,10 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       }
 
       const arrayBuffer = allChunks.buffer;
+      console.log('Decoding audio data...');
       const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
       audioBufferRef.current = decodedBuffer;
+      console.log('Audio decoded successfully. Duration:', decodedBuffer.duration, 'channels:', decodedBuffer.numberOfChannels);
 
       const hasDuet = !!(songItem && songItem.duet && songItem.duet.length > 0);
       const numParts = (songItem && songItem.duet) ? songItem.duet.length : 1;
@@ -711,11 +722,24 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
 
   // Start Sync Playback
   const handleStartGame = (serverStartTimestamp: number) => {
-    if (!audioContextRef.current || !audioBufferRef.current) return;
+    console.log('handleStartGame triggered. Server start timestamp:', serverStartTimestamp);
+    if (!audioContextRef.current) {
+      console.error('handleStartGame error: audioContextRef.current is null!');
+      return;
+    }
+    if (!audioBufferRef.current) {
+      console.error('handleStartGame error: audioBufferRef.current is null!');
+      return;
+    }
+
+    console.log('AudioContext state at handleStartGame start:', audioContextRef.current.state);
 
     // Ensure audio context is running (safeguard for async WS trigger)
     if (audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume().catch((err) => {
+      console.log('AudioContext is suspended in handleStartGame. Attempting to resume...');
+      audioContextRef.current.resume().then(() => {
+        console.log('AudioContext resume resolved inside handleStartGame. State:', audioContextRef.current!.state);
+      }).catch((err) => {
         console.warn('Failed to resume audio context in handleStartGame:', err);
       });
     }
@@ -723,23 +747,30 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
     // Compute localized startup delay
     const now = fixedTimestamp();
     let delay = (serverStartTimestamp - now) / 1000;
+    console.log('Sync offset calculation - Server start:', serverStartTimestamp, 'Local NTP now:', now, 'Raw delay (sec):', delay);
     
     // Add spectator voice alignment delay if checked
     if (spectatorDelayRef.current) {
       delay += 0.15;
+      console.log('Added spectator sync delay (+150ms). New delay:', delay);
     }
 
-    const source = audioContextRef.current.createBufferSource();
-    source.buffer = audioBufferRef.current;
-    source.connect(audioContextRef.current.destination);
-    audioNodeRef.current = source;
+    try {
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = audioBufferRef.current;
+      source.connect(audioContextRef.current.destination);
+      audioNodeRef.current = source;
+      console.log('Audio buffer source created and connected to destination.');
 
-    if (delay > 0) {
-      source.start(audioContextRef.current.currentTime + delay);
-      startTimeRef.current = audioContextRef.current.currentTime + delay;
-    } else {
-      source.start(0, -delay);
-      startTimeRef.current = audioContextRef.current.currentTime + delay;
+      if (delay > 0) {
+        source.start(audioContextRef.current.currentTime + delay);
+        startTimeRef.current = audioContextRef.current.currentTime + delay;
+      } else {
+        source.start(0, -delay);
+        startTimeRef.current = audioContextRef.current.currentTime + delay;
+      }
+    } catch (err) {
+      console.error('Error starting audio source in handleStartGame:', err);
     }
 
     setIsPlaying(true);
