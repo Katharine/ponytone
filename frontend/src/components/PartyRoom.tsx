@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Plus, Trash2, Users, Volume2, Music, PhoneCall, PhoneOff, Award, Tv } from 'lucide-react';
+import { Play, Plus, Trash2, Users, Volume2, Music, PhoneCall, PhoneOff, Award, Tv, Settings, X } from 'lucide-react';
 import { Song } from '../utils/ultrastar';
 import { CanvasRenderer } from './CanvasRenderer';
 import type { PlayerState } from './CanvasRenderer';
@@ -58,6 +58,24 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
   const [isVoiceSharing, setIsVoiceSharing] = useState(false);
   const [voiceVolume, setVoiceVolume] = useState(0.8);
   const [spectatorDelay, setSpectatorDelay] = useState(false); // 150ms delay for alignment
+  
+  // Settings Panel and Window Dimensions
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [dimensions, setDimensions] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // WebSockets and Refs
   const socketRef = useRef<WebSocket | null>(null);
@@ -964,9 +982,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
             </section>
           </div>
         </div>
-      )}
-
-      {activeTab === 'game' && (
+      )}      {activeTab === 'game' && (
         <div className="gameplay-arena">
           {/* Main Karaoke Screen rendering Canvas */}
           <div className="game-screen-wrapper">
@@ -976,8 +992,8 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
                 players={playersState}
                 currentTime={gameTime}
                 duration={audioBufferRef.current ? audioBufferRef.current.duration * 1000 : 0}
-                width={1000}
-                height={562} // 16:9 ratio
+                width={dimensions.width}
+                height={dimensions.height}
                 videoUrl={activeSong.video}
                 posterUrl={activeSong.background}
                 isPlaying={isPlaying}
@@ -994,91 +1010,178 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
 
             {/* Gameplay overlay controls */}
             {!isPlaying && !loadingSong && (
-              <div className="glass-panel screen-waiting-overlay">
-                <h3>Song Ready to Start</h3>
-                <p>{activeSongItem?.title} - {activeSongItem?.artist}</p>
-                
-                {/* Per-player duet part assignment (only shown for duet songs with multiple parts) */}
-                {activeSong && activeSong.parts.length > 1 && (
-                  <div style={{
-                    margin: '12px 0 16px 0',
-                    width: '100%',
-                    maxWidth: '400px',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: '16px',
-                    padding: '14px 16px',
-                    boxSizing: 'border-box',
-                  }}>
-                    <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#c084fc', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
-                      Assign Duet Parts
-                    </h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {playersState.map((player) => (
-                        <div key={player.channel} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: player.colour, flexShrink: 0 }} />
-                            {player.nick}
-                          </span>
-                          <select
-                            value={player.part}
-                            onChange={(e) => handlePartChange(player.channel || '', parseInt(e.target.value))}
-                            className="styled-select"
-                            style={{ margin: 0, padding: '5px 10px', fontSize: '13px', flexShrink: 0 }}
-                          >
-                            {activeSong.parts.map((_, pIdx) => {
-                              const partName = activeSongItem?.duet?.[pIdx] || `Part ${pIdx + 1}`;
-                              return <option key={pIdx} value={pIdx}>{partName}</option>;
-                            })}
-                          </select>
-                        </div>
-                      ))}
+              <div className="screen-waiting-overlay">
+                {/* Centered Glass Card */}
+                <div className="glass-panel" style={{
+                  padding: '32px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  maxWidth: '480px',
+                  width: '90%',
+                  backdropFilter: 'blur(20px)',
+                  background: 'rgba(15, 10, 25, 0.75)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '24px',
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+                  textAlign: 'center',
+                  boxSizing: 'border-box'
+                }}>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>Song Ready to Start</h3>
+                  <p style={{ margin: '0 0 20px 0', color: '#a1a1aa', fontSize: '15px' }}>{activeSongItem?.title} - {activeSongItem?.artist}</p>
+                  
+                  {/* Per-player duet part assignment (only shown for duet songs with multiple parts) */}
+                  {activeSong && activeSong.parts.length > 1 && (
+                    <div style={{
+                      margin: '0 0 24px 0',
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '16px',
+                      padding: '16px',
+                      boxSizing: 'border-box',
+                    }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#c084fc', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+                        Assign Duet Parts
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {playersState.map((player) => (
+                          <div key={player.channel} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: player.colour, flexShrink: 0 }} />
+                              {player.nick}
+                            </span>
+                            <select
+                              value={player.part}
+                              onChange={(e) => handlePartChange(player.channel || '', parseInt(e.target.value))}
+                              className="styled-select"
+                              style={{ margin: 0, padding: '6px 12px', fontSize: '13px', flexShrink: 0 }}
+                            >
+                              {activeSong.parts.map((_, pIdx) => {
+                                const partName = activeSongItem?.duet?.[pIdx] || `Part ${pIdx + 1}`;
+                                return <option key={pIdx} value={pIdx}>{partName}</option>;
+                              })}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <button onClick={triggerStartGame} className="btn btn-primary animate-hover">
-                  <Play size={18} /> Start Sync Playback
-                </button>
+                  <button onClick={triggerStartGame} className="btn btn-primary animate-hover" style={{ width: '100%', padding: '14px 28px', fontSize: '16px', fontWeight: 'bold' }}>
+                    <Play size={18} /> Start Sync Playback
+                  </button>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Settings / WebRTC adjustment toolbar */}
-          <div className="glass-panel gameplay-toolbar">
-            <div className="setting-control">
-              <Volume2 size={16} />
-              <label>Voice Chat Vol:</label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={voiceVolume}
-                onChange={(e) => setVoiceVolume(parseFloat(e.target.value))}
-                className="styled-slider"
-              />
-            </div>
+          {/* Floating Settings Toggle Button */}
+          <button
+            onClick={() => setShowSettingsPanel((prev) => !prev)}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              zIndex: 30,
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              backdropFilter: 'blur(10px)',
+              transition: 'all 0.2s',
+            }}
+            className="settings-toggle-btn animate-hover"
+            title="Gameplay Settings"
+          >
+            {showSettingsPanel ? <X size={20} /> : <Settings size={20} />}
+          </button>
 
-            <div className="setting-control checkbox">
-              <input
-                type="checkbox"
-                id="spectatorDelay"
-                checked={spectatorDelay}
-                onChange={(e) => setSpectatorDelay(e.target.checked)}
-              />
-              <label htmlFor="spectatorDelay">
-                <Tv size={14} /> Spectator Sync Delay (+150ms voice alignment)
-              </label>
-            </div>
+          {/* Floating Settings Dropdown Panel */}
+          {showSettingsPanel && (
+            <div
+              className="glass-panel"
+              style={{
+                position: 'absolute',
+                top: '76px',
+                right: '20px',
+                zIndex: 30,
+                width: '320px',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px',
+                backdropFilter: 'blur(20px)',
+                background: 'rgba(15, 10, 25, 0.85)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '20px',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+                boxSizing: 'border-box'
+              }}
+            >
+              <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#c084fc' }}>Gameplay Settings</h4>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#a1a1aa' }}>
+                  <Volume2 size={16} />
+                  <label>Voice Chat Vol:</label>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={voiceVolume}
+                  onChange={(e) => setVoiceVolume(parseFloat(e.target.value))}
+                  className="styled-slider"
+                  style={{ width: '100%' }}
+                />
+              </div>
 
-            <button onClick={handleSongFinish} className="btn-abort">
-              Abort Song
-            </button>
-          </div>
+              <div className="setting-control checkbox" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  id="spectatorDelay"
+                  checked={spectatorDelay}
+                  onChange={(e) => setSpectatorDelay(e.target.checked)}
+                  style={{ margin: 0 }}
+                />
+                <label htmlFor="spectatorDelay" style={{ cursor: 'pointer', color: '#e4e4e7', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Tv size={14} style={{ color: '#c084fc' }} /> Spectator Sync Delay (+150ms)
+                </label>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowSettingsPanel(false);
+                  handleSongFinish();
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '12px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  color: '#fca5a5',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'background 0.2s',
+                }}
+                className="animate-hover"
+              >
+                Abort Song
+              </button>
+            </div>
+          )}
         </div>
       )}
-
       {activeTab === 'results' && (
         <div className="glass-panel results-screen animate-fade-in">
           <h2>Singing Battle Results!</h2>
