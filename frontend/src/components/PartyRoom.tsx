@@ -949,17 +949,32 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
                   })}
               </div>
 
-              {/* QR pairing panel */}
-              <div className="qr-pairing-box">
-                <SmartphoneIcon size={24} style={{ color: '#c084fc' }} />
-                <div>
-                  <h4>Connect mobile microphone</h4>
-                  <p>Open this page on your phone or scan to pair:</p>
-                  <code style={{ fontSize: '12px' }}>
-                    {window.location.origin}/mic/{partyId}?target={myChannelRef.current}
-                  </code>
+              {/* QR pairing panel (only visible in Con Mode) */}
+              {mode === 'con' && (
+                <div className="qr-pairing-box" style={{ flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <SmartphoneIcon size={24} style={{ color: '#c084fc' }} />
+                    <h4 style={{ margin: 0 }}>Connect mobile microphone</h4>
+                  </div>
+                  <p style={{ margin: '0 0 12px 0' }}>Scan this QR code with your phone camera to join the stage:</p>
+                  <div style={{
+                    background: '#fff',
+                    padding: '12px',
+                    borderRadius: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                  }}>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/mic/${partyId}`)}`}
+                      alt="QR Code to join party room"
+                      style={{ width: '150px', height: '150px', display: 'block' }}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </section>
 
             {/* Current Playlist Queue */}
