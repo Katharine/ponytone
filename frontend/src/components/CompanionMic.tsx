@@ -67,114 +67,169 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
 
   const { isActive, start: startAudioEngine, stop: stopAudioEngine } = useAudioEngine(handlePitch);
 
+  const isRegisteredRef = useRef(isRegistered);
+  const isPairedRef = useRef(isPaired);
+  const registeredNickRef = useRef(registeredNick);
+  const pairedTargetChannelRef = useRef(pairedTargetChannel);
+
+  useEffect(() => {
+    isRegisteredRef.current = isRegistered;
+  }, [isRegistered]);
+
+  useEffect(() => {
+    isPairedRef.current = isPaired;
+  }, [isPaired]);
+
+  useEffect(() => {
+    registeredNickRef.current = registeredNick;
+  }, [registeredNick]);
+
+  useEffect(() => {
+    pairedTargetChannelRef.current = pairedTargetChannel;
+  }, [pairedTargetChannel]);
+
   useEffect(() => {
     // Initial NTP clock synchronization
     syncTime();
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/party/${partyId}?mic=true`;
-    
-    setStatus('connecting');
-    const ws = new WebSocket(wsUrl);
-    socketRef.current = ws;
+    let isDisposed = false;
+    let reconnectTimeoutId: any = null;
 
-    ws.onopen = () => {
-      setStatus('connected');
-      console.log('WebSocket connected as companion mic');
-    };
+    const connect = () => {
+      if (isDisposed) return;
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      switch (data.action) {
-        case 'hello':
-          myChannelRef.current = data.channel || '';
-          setMembers(data.members || {});
-          break;
-        case 'new_member':
-          setMembers((prev) => ({
-            ...prev,
-            [data.channel]: { nick: data.nick, colour: data.colour, id: data.id }
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws/party/${partyId}?mic=true`;
+      
+      setStatus('connecting');
+      const ws = new WebSocket(wsUrl);
+      socketRef.current = ws;
+
+      ws.onopen = () => {
+        if (isDisposed) {
+          ws.close();
+          return;
+        }
+        setStatus('connected');
+        console.log('WebSocket connected as companion mic');
+
+        // Automatically re-register or re-pair if we had an active state
+        if (isRegisteredRef.current && registeredNickRef.current) {
+          console.log(`Re-registering player: ${registeredNickRef.current}`);
+          ws.send(JSON.stringify({
+            action: 'registerPlayer',
+            nick: registeredNickRef.current,
           }));
-          break;
-        case 'member_left':
-          setMembers((prev) => {
-            const updated = { ...prev };
-            delete updated[data.channel];
-            return updated;
-          });
-          break;
-        case 'micPaired':
-          if (data.target) {
-            setIsPaired(true);
-            setIsRegistered(false);
-            setPairedTargetChannel(data.target);
-          }
-          break;
-        case 'trackLoaded': {
-          const numParts = data.numParts || 1;
-          const partNames = data.partNames || [];
-          setDuetPartsCount(numParts);
-          setDuetPartNames(partNames);
-          
-          const myCh = myChannelRef.current;
-          const pairedCh = pairedTargetChannel;
-          const effectiveChannel = isRegistered ? myCh : (isPaired ? pairedCh : '');
-          if (effectiveChannel && data.assignments && data.assignments[effectiveChannel] !== undefined) {
-            setSelectedPartIndex(data.assignments[effectiveChannel]);
-          }
-          break;
+        } else if (isPairedRef.current && pairedTargetChannelRef.current) {
+          console.log(`Re-pairing microphone to target channel: ${pairedTargetChannelRef.current}`);
+          ws.send(JSON.stringify({
+            action: 'pairMic',
+            target: pairedTargetChannelRef.current,
+          }));
         }
-        case 'selectPart': {
-          const myCh = myChannelRef.current;
-          const pairedCh = pairedTargetChannel;
-          const targetCh = data.channel || data.target;
-          if (targetCh === myCh || (isPaired && targetCh === pairedCh)) {
-            setSelectedPartIndex(data.part);
+      };
+
+      ws.onmessage = (event) => {
+        if (isDisposed) return;
+        const data = JSON.parse(event.data);
+        switch (data.action) {
+          case 'hello':
+            myChannelRef.current = data.channel || '';
+            setMembers(data.members || {});
+            break;
+          case 'new_member':
+            setMembers((prev) => ({
+              ...prev,
+              [data.channel]: { nick: data.nick, colour: data.colour, id: data.id }
+            }));
+            break;
+          case 'member_left':
+            setMembers((prev) => {
+              const updated = { ...prev };
+              delete updated[data.channel];
+              return updated;
+            });
+            break;
+          case 'micPaired':
+            if (data.target) {
+              setIsPaired(true);
+              setIsRegistered(false);
+              setPairedTargetChannel(data.target);
+            }
+            break;
+          case 'trackLoaded': {
+            const numParts = data.numParts || 1;
+            const partNames = data.partNames || [];
+            setDuetPartsCount(numParts);
+            setDuetPartNames(partNames);
+            
+            const myCh = myChannelRef.current;
+            const pairedCh = pairedTargetChannelRef.current;
+            const effectiveChannel = isRegisteredRef.current ? myCh : (isPairedRef.current ? pairedCh : '');
+            if (effectiveChannel && data.assignments && data.assignments[effectiveChannel] !== undefined) {
+              setSelectedPartIndex(data.assignments[effectiveChannel]);
+            }
+            break;
           }
-          break;
-        }
-        case 'startGame':
-          serverStartTimestampRef.current = data.time;
-          setIsPlaying(true);
-          
-          // Determine our assigned part name
-          const myCh = myChannelRef.current;
-          const pairedCh = pairedTargetChannel;
-          const effectiveChannel = isRegistered ? myCh : (isPaired ? pairedCh : '');
-          if (effectiveChannel && data.assignments && data.assignments[effectiveChannel]) {
-            setAssignedPartName(data.assignments[effectiveChannel].partName);
-          } else {
+          case 'selectPart': {
+            const myCh = myChannelRef.current;
+            const pairedCh = pairedTargetChannelRef.current;
+            const targetCh = data.channel || data.target;
+            if (targetCh === myCh || (isPairedRef.current && targetCh === pairedCh)) {
+              setSelectedPartIndex(data.part);
+            }
+            break;
+          }
+          case 'startGame':
+            serverStartTimestampRef.current = data.time;
+            setIsPlaying(true);
+            
+            // Determine our assigned part name
+            const myCh = myChannelRef.current;
+            const pairedCh = pairedTargetChannelRef.current;
+            const effectiveChannel = isRegisteredRef.current ? myCh : (isPairedRef.current ? pairedCh : '');
+            if (effectiveChannel && data.assignments && data.assignments[effectiveChannel]) {
+              setAssignedPartName(data.assignments[effectiveChannel].partName);
+            } else {
+              setAssignedPartName('');
+            }
+
+            // Automatically trigger microphone activation on game start
+            startAudioEngine().catch((e) => console.error('Failed to trigger audio engine:', e));
+            break;
+          case 'songFinished':
+          case 'returnedToLobby':
+            setIsPlaying(false);
             setAssignedPartName('');
-          }
+            setDuetPartsCount(0);
+            setDuetPartNames([]);
+            setSelectedPartIndex(0);
+            stopAudioEngine();
+            break;
+        }
+      };
 
-          // Automatically trigger microphone activation on game start
-          startAudioEngine().catch((e) => console.error('Failed to trigger audio engine:', e));
-          break;
-        case 'songFinished':
-        case 'returnedToLobby':
-          setIsPlaying(false);
-          setAssignedPartName('');
-          setDuetPartsCount(0);
-          setDuetPartNames([]);
-          setSelectedPartIndex(0);
-          stopAudioEngine();
-          break;
-      }
+      ws.onclose = () => {
+        if (isDisposed) return;
+        setStatus('disconnected');
+        
+        // Schedule reconnection
+        console.log('WebSocket closed. Retrying connection in 2 seconds...');
+        reconnectTimeoutId = setTimeout(connect, 2000);
+      };
+
+      ws.onerror = (err) => {
+        console.error('WebSocket error:', err);
+        ws.close();
+      };
     };
 
-    ws.onclose = () => {
-      setStatus('disconnected');
-      stopAudioEngine();
-    };
-
-    ws.onerror = (err) => {
-      console.error('WebSocket error:', err);
-      setStatus('disconnected');
-      stopAudioEngine();
-    };
+    connect();
 
     return () => {
-      ws.close();
+      isDisposed = true;
+      if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId);
+      if (socketRef.current) socketRef.current.close();
       stopAudioEngine();
     };
   }, [partyId, initialTarget]);

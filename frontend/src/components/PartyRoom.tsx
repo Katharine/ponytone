@@ -231,6 +231,15 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
             ...prev,
             [data.channel]: { nick: data.nick, colour: data.colour, id: data.id }
           }));
+          setPlayersState((prev) =>
+            prev.map((p) => {
+              if (p.nick === data.nick) {
+                console.log(`Re-associating player ${p.nick} to new channel ${data.channel}`);
+                return { ...p, channel: data.channel };
+              }
+              return p;
+            })
+          );
           break;
         case 'member_left':
           setMembers((prev) => {
