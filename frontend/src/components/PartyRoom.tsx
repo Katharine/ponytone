@@ -4,7 +4,7 @@ import { Song } from '../utils/ultrastar';
 import { CanvasRenderer } from './CanvasRenderer';
 import type { PlayerState } from './CanvasRenderer';
 import { useAudioEngine } from '../hooks/useAudioEngine';
-import { syncTime, fixedTimestamp } from '../utils/ntp';
+import { syncTime, fixedTimestamp, suspendSync, handleNtpPong } from '../utils/ntp';
 import { Tournament } from './Tournament';
 import confetti from 'canvas-confetti';
 import QRCode from 'qrcode';
@@ -413,7 +413,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       }));
       
       // Sync clock offsets
-      syncTime();
+      syncTime(ws);
 
       // Start ping keep-alive interval
       pingIntervalId = setInterval(() => {
@@ -428,6 +428,9 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       console.log('WebSocket Action:', data.action);
 
       switch (data.action) {
+        case 'ntp_pong':
+          handleNtpPong(data);
+          break;
         case 'hello':
           myChannelRef.current = data.channel;
           break;
@@ -484,12 +487,14 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
           break;
         case 'loadTrack':
           setPlayersReadyState({});
+          suspendSync(true);
           handleLoadTrack(data.song, data.part || 0);
           break;
         case 'returnedToLobby':
           setPlayersReadyState({});
           setPlayersLoadProgress({});
           setLobbyAssignments({});
+          suspendSync(false);
           setActiveTab('lobby');
           // Re-broadcast lobbySongParts if we have them
           if (lobbySongPartsRef.current.length > 0) {
@@ -564,6 +569,7 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
       ws.close();
       cleanupAudio();
       cleanupWebRTC();
+      suspendSync(false);
     };
   }, [partyId, nick, mode]);
 

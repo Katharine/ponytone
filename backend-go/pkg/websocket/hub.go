@@ -93,12 +93,13 @@ type WSMessage struct {
 	Playlist []uint      `json:"playlist,omitempty"`
 	Song     uint        `json:"song,omitempty"`
 	Members  interface{} `json:"members,omitempty"`
-	Time     int64       `json:"time,omitempty"`
-	Track    uint        `json:"track,omitempty"`
-	Part     int         `json:"part,omitempty"`
-	Score    int         `json:"score,omitempty"`
-	Notes    interface{} `json:"notes,omitempty"`
-	Note     int         `json:"note"`
+	Time           int64                    `json:"time"`
+	OriginalTime   int64                    `json:"originalTime,omitempty"`
+	Track          uint                     `json:"track,omitempty"`
+	Part           int                      `json:"part,omitempty"`
+	Score          int                      `json:"score,omitempty"`
+	Notes          interface{}              `json:"notes,omitempty"`
+	Note           int                      `json:"note"`
 	// Extra relay fields passed through verbatim (assignments, partNames, numParts, etc.)
 	NumParts       int                      `json:"numParts,omitempty"`
 	PartNames      []string                 `json:"partNames,omitempty"`

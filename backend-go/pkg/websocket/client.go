@@ -363,6 +363,15 @@ func HandleWebSocket(c *websocket.Conn) {
 				Action: "pong",
 			})
 
+		case "ntp_ping":
+			now := time.Now().UnixNano() / int64(time.Millisecond)
+			offset := now - wsMsg.Time
+			client.Send(WSMessage{
+				Action:       "ntp_pong",
+				Time:         offset,
+				OriginalTime: wsMsg.Time,
+			})
+
 		case "startReadyCheck":
 			// No-op in persistent lobby ready check system
 

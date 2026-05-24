@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAudioEngine, type DetectedNote } from '../hooks/useAudioEngine';
 import { Mic, MicOff, Wifi, WifiOff, Smartphone, User, Link, Check } from 'lucide-react';
-import { syncTime, fixedTimestamp } from '../utils/ntp';
+import { syncTime, fixedTimestamp, suspendSync, handleNtpPong } from '../utils/ntp';
 
 const FONT = 'Ubuntu, sans-serif';
 
@@ -99,9 +99,6 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
     document.documentElement.classList.add('mic-page-html');
     document.body.classList.add('mic-page-body');
 
-    // Initial NTP clock synchronization
-    syncTime();
-
     let isDisposed = false;
     let reconnectTimeoutId: any = null;
     let pingIntervalId: any = null;
@@ -123,6 +120,9 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
         }
         setStatus('connected');
         console.log('WebSocket connected as companion mic');
+
+        // Sync clock offsets
+        syncTime(ws);
 
         // Start ping keep-alive interval
         pingIntervalId = setInterval(() => {
@@ -151,6 +151,9 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
         if (isDisposed) return;
         const data = JSON.parse(event.data);
         switch (data.action) {
+          case 'ntp_pong':
+            handleNtpPong(data);
+            break;
           case 'hello':
             myChannelRef.current = data.channel || '';
             setMembers(data.members || {});
@@ -184,6 +187,7 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
           case 'loadTrack':
             setIsSongLoading(true);
             setLoadingSongId(data.song);
+            suspendSync(true);
             break;
           case 'trackLoaded': {
             const numParts = data.numParts || 1;
@@ -241,6 +245,7 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
             setDuetPartNames([]);
             setSelectedPartIndex(0);
             stopAudioEngine();
+            suspendSync(false);
             break;
         }
       };
@@ -269,6 +274,7 @@ export const CompanionMic: React.FC<CompanionMicProps> = ({ partyId }) => {
       if (pingIntervalId) clearInterval(pingIntervalId);
       if (socketRef.current) socketRef.current.close();
       stopAudioEngine();
+      suspendSync(false);
 
       // Clean up layout resets on document and body
       document.documentElement.classList.remove('mic-page-html');
