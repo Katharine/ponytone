@@ -394,6 +394,9 @@ export const PartyRoom: React.FC<PartyRoomProps> = ({ partyId, nick, mode, onLea
 
   // Connect WebSockets
   useEffect(() => {
+    // Clean up the URL in the address bar to prevent nickname sharing/hijacking
+    window.history.replaceState({}, '', `/party/${partyId}?mode=${mode}`);
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = mode === 'con'
       ? `${protocol}//${window.location.host}/ws/party/${partyId}?display=true`

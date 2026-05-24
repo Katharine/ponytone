@@ -3,6 +3,7 @@ import { Home } from './components/Home';
 import { PartyRoom } from './components/PartyRoom';
 import { CompanionMic } from './components/CompanionMic';
 import { Leaderboard } from './components/Leaderboard';
+import { JoinLanding } from './components/JoinLanding';
 
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -56,14 +57,29 @@ function App() {
   if (currentPath.startsWith('/party/')) {
     const partyId = currentPath.substring(7);
     const searchParams = new URLSearchParams(currentSearch);
-    const nick = searchParams.get('nick') || localStorage.getItem('ponytone_nick') || 'Host';
-    const rawMode = searchParams.get('mode');
-    const mode: 'computer' | 'con' = rawMode === 'con' ? 'con' : 'computer';
+    const urlNick = searchParams.get('nick');
+    const urlMode = searchParams.get('mode');
+
+    // If nickname is not present in URL query string, we need to prompt the user
+    // for their nickname and play mode before entering the room!
+    if (!urlNick) {
+      return (
+        <JoinLanding
+          partyId={partyId}
+          onJoin={(nick, mode) => {
+            navigate(`/party/${partyId}?nick=${encodeURIComponent(nick)}&mode=${mode}`);
+          }}
+          onCancel={() => navigate('/')}
+        />
+      );
+    }
+
+    const mode: 'computer' | 'con' = urlMode === 'con' ? 'con' : 'computer';
 
     return (
       <PartyRoom
         partyId={partyId}
-        nick={nick}
+        nick={urlNick}
         mode={mode}
         onLeave={() => navigate('/')}
       />
